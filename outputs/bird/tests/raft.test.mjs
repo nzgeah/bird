@@ -1,3 +1,4 @@
+import {placeFromInventory} from '../src/placement.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,move,onRaft,craft,updateEnemy,shoot,tick} from '../src/model.js';
@@ -24,12 +25,12 @@ test('snake cannot hurt either player or raft while standing on any deck tile',(
  g.player.x=400;Object.assign(g.enemy,{x:400,y:g.player.y,z:g.player.z,bite:0,stun:0});updateEnemy(g,.01);assert.equal(g.player.hp,88);
 });
 test('crafting extends toward selected direction and new tile is solid and safe',()=>{
- const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'hull',{x:1,z:0}));
+ const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'hull'));assert.equal(g.ship.tiles.length,9);assert.ok(placeFromInventory(g,'hull',192,0));
  const t=g.ship.tiles.at(-1);assert.equal(t.x,2);assert.equal(g.ship.modules,10);assert.equal(g.ship.max,160);
  Object.assign(g.player,{x:t.x*TILE,y:standing+100,z:t.z*TILE});move(g,{y:-1},3);assert.equal(g.player.y,standing);assert.ok(onRaft(g));
 });
 test('crafted station exists physically, repairs hull and spends one cell',()=>{
- const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'repairDock'));assert.equal(g.ship.objects.length,1);
+ const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'repairDock'));assert.equal(g.ship.objects.length,0);assert.ok(placeFromInventory(g,'repairDock',0,0));assert.equal(g.ship.objects.length,1);
  const o=g.ship.objects[0];Object.assign(g.player,{x:o.x+70,y:standing,z:o.z});moveWithCollisions(g,{x:-70,y:0,z:0});assert.equal(g.player.x,o.x+24);
  g.ship.hp=50;const cells=g.inventory.cell;tick(g,{x:0,y:0,z:0},.02);assert.equal(g.ship.hp,80);assert.equal(g.inventory.cell,cells-1);
 });

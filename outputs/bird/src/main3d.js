@@ -1,3 +1,5 @@
+import {BUILDABLES,ITEM_NAMES,cargoValues} from './items.js';
+import {placeFromInventory} from './placement.js';
 import {DamageVision} from './damage-vision.js';
 import {createCargo} from './cargo.js';
 import {createGame,tick,launchHook,craft,attack,canCraft,RECIPES,NAMES,distance,onRaft,shoot} from './model.js';
@@ -8,12 +10,13 @@ import {resetMotion,GRAVITY} from './physics.js';
 import {DECK_TOP,EYE_HEIGHT} from './raft.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
+let placement=null,selectedItem=null;
 let menuOpen=false;let game=createGame(),started=false,paused=false,last=performance.now(),view;
 try{view=new SpaceView(canvas);}catch(error){$('#intro').textContent='Не удалось запустить WebGL 2. Откройте игру в браузере с аппаратным ускорением. '+error.message;$('#start').disabled=true;throw error;}
 $('#start').disabled=true;
 $('#start').textContent='ЗАГРУЗКА МОДЕЛЕЙ И ТЕКСТУР…';
 view.assetsReady.then(()=>{
-  document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='ВЫЙТИ НА ОРБИТУ ↗';
+  cargoOptions.thumbnails=view.itemThumbnails();document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='ВЫЙТИ НА ОРБИТУ ↗';
 }).catch(error=>{
   document.body.dataset.assets='error';$('#intro').textContent='Не удалось загрузить модели или текстуру Земли. Обновите страницу. '+error.message;
   $('#start').textContent='МОДЕЛИ НЕ ЗАГРУЖЕНЫ';console.error(error);
@@ -22,13 +25,14 @@ const canPlay=()=>started&&!paused&&!game.over&&!game.won;
 const active=()=>canPlay()&&!menuOpen;
 const hotbarTools=['hook','pulse','blaster',null,null,null,null,null,null,null];
 let hotbarIndex=0;
-function selectHotbar(index){hotbarIndex=(index+10)%10;const tool=hotbarTools[hotbarIndex];game.tool=tool&&(tool==='hook'||game.upgrades[tool])?tool:null;}
+function selectHotbar(index){placement=null;hotbarIndex=(index+10)%10;const tool=hotbarTools[hotbarIndex];game.tool=tool&&(tool==='hook'||game.upgrades[tool])?tool:null;}
 const controls=createControls(canvas,{
   lockError:()=>{game.log='Захват мыши отклонён браузером. Клик по игре — повторить.';},
-  active,pause,grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>attack(game),
+  active,pause,cancel:()=>{if(!placement)return false;placement=null;game.log='Установка отменена. Предмет остался в инвентаре.';return true;},
+  key:(code,repeat)=>{if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement)attack(game);},
   home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+70});resetMotion(game.player);game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
   cycle:step=>selectHotbar(hotbarIndex+step),
-  hook:(x,y)=>{if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
+  hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
   blur:()=>{if(active())pause();},
 });
 addEventListener('resize',()=>view.resize());
@@ -37,7 +41,14 @@ const toolIcons={hook:'<path d="M13 5h8v9l-5 5v8a6 6 0 0 1-12 0v-4l4 4"/>',pulse
 $('#hotbar').innerHTML=hotbarTools.map((tool,i)=>`<button class="cargo-slot hotbar-slot" data-hotbar="${i}" aria-label="Слот ${i+1}" title="${tool?({hook:'Крюк',pulse:'Резак',blaster:'Бластер'}[tool]):'Пустой слот'}"><span class="slot-key">${(i+1)%10}</span>${tool?'<svg viewBox="0 0 36 36" aria-hidden="true">'+toolIcons[tool]+'</svg><span class="hotbar-name">'+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР'}[tool])+'</span>':''}</button>`).join('');
 for(const button of document.querySelectorAll('[data-hotbar]'))button.onclick=()=>{selectHotbar(Number(button.dataset.hotbar));if(active())controls.lock();};
 
-const cargo=createCargo($('#inventory'),NAMES,COLORS);
+function showSelectedItem(key){
+  selectedItem=key;const count=cargoValues(game)[key]??0;
+  text('#selected-item',key&&count?ITEM_NAMES[key]+' · '+count+' шт.'+(BUILDABLES[key]?' · готово к установке':' · материал для крафта'):'Выберите предмет. Перетащите его, чтобы переместить.');
+  $('#place-item').hidden=!BUILDABLES[key]||count<1;
+}
+const cargoOptions={thumbnails:{},onSelect:showSelectedItem};
+const cargo=createCargo($('#inventory'),ITEM_NAMES,COLORS,cargoOptions);
+$('#place-item').onclick=()=>{if(!canPlay()||!BUILDABLES[selectedItem]||!game.buildInventory[selectedItem])return;placement={type:selectedItem,rotation:0};setInventory(false);game.log='Наведите на палубу. R — поворот, ЛКМ — установить, ПКМ / Esc — отмена.';};
 $('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
 for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>{if(button.dataset.tool==='hook'||game.upgrades[button.dataset.tool]){selectHotbar(hotbarTools.indexOf(button.dataset.tool));updateUI();}};
 $('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.hidden;$('#cargo-tab').setAttribute('aria-pressed',String(!panel.hidden));};
@@ -52,8 +63,8 @@ function updateUI(){
   $('#hotbar').hidden=!started||paused||menuOpen||game.over||game.won;
   for(const button of document.querySelectorAll('[data-hotbar]')){const index=Number(button.dataset.hotbar),tool=hotbarTools[index],owned=tool&&(tool==='hook'||game.upgrades[tool]);button.classList.toggle('selected',index===hotbarIndex);button.classList.toggle('unavailable',!owned);button.disabled=false;button.setAttribute('aria-pressed',String(index===hotbarIndex));}
 
-  cargo.render(game.inventory);
-  text('#cargo-summary','SALVAGE · '+Object.values(game.inventory).reduce((a,b)=>a+b,0)+' UNITS');
+  cargo.render(cargoValues(game));showSelectedItem(selectedItem);
+  text('#cargo-summary','SALVAGE · '+Object.values(cargoValues(game)).reduce((a,b)=>a+b,0)+' UNITS');
   text('#cargo-health','TS–04');
   for(const button of document.querySelectorAll('[data-tool]')){button.disabled=button.dataset.tool!=='hook'&&!game.upgrades[button.dataset.tool];button.classList.toggle('selected',button.dataset.tool===game.tool);}
 
@@ -62,7 +73,7 @@ function updateUI(){
   text('#mode',!started?'3D / WEBGL':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
   text('#objective',game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
   text('#workshop',(onRaft(game)||distance(game.player,game.ship)<180)?'Палуба '+game.ship.modules+' секц. · крафт доступен':'Вне корабля · F: вернуться к мастерской');
-  for(const button of document.querySelectorAll('[data-recipe]')){const recipe=RECIPES.find(recipe=>recipe.id===button.dataset.recipe);button.disabled=!canPlay()||!canCraft(game,recipe);const icon=recipe.once&&game.upgrades[recipe.id]?'✓':'＋';if(button.querySelector('em').textContent!==icon)button.querySelector('em').textContent=icon;}
+  for(const button of document.querySelectorAll('[data-recipe]')){const recipe=RECIPES.find(recipe=>recipe.id===button.dataset.recipe);button.disabled=!canPlay()||!canCraft(game,recipe);const icon=recipe.once&&(game.upgrades[recipe.id]||game.buildInventory[recipe.id]>0)?'✓':'＋';if(button.querySelector('em').textContent!==icon)button.querySelector('em').textContent=icon;}
   const stationDistance=distance(game.player,game.station);
   text('#navigation',`ВЕКТОР ${Math.round(stationDistance)} м · BIRD ${Math.round(distance(game.player,game.ship))} м`);
   text('#interaction',stationDistance<145?`Удерживайте R · ${game.station.stock?'груз '+game.station.stock+'/16':game.archive?'архив получен':'извлечение архива'} ${Math.round(game.station.progress/.6*100)}%`:onRaft(game)?'Магнитные ботинки · E: покинуть палубу · змейка не атакует':'Космос · Shift: торможение · Q/E: тяга · F: аварийный трос');
@@ -72,7 +83,7 @@ function updateUI(){
     marker.textContent=`${point.inFront?'◇':'↶'} ${name} · ${point.distance} м`;marker.hidden=!started||paused||menuOpen;
   }
 }
-function start(){setInventory(false,false);if(game.over||game.won){game=createGame();selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
+function start(){placement=null;setInventory(false,false);if(game.over||game.won){game=createGame();selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
 $('#start').onclick=start;
 
 function pause(){
@@ -86,12 +97,15 @@ function showOutcome(){setInventory(false,false);controls.unlock();
 }
 function frame(now){
   const dt=Math.min((now-last)/1000,.04);last=now;
-  if(active()&&controls.locked()){tick(game,{...controls.input(),interact:controls.keys.has('KeyR')},dt);if(game.over||game.won)showOutcome();}
+  if(active()&&controls.locked()){tick(game,{...controls.input(),interact:!placement&&controls.keys.has('KeyR')},dt);if(game.over||game.won)showOutcome();}
   damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
-  view.render(game,controls,dt);text('#tool-status','1 КРЮК · 2 РЕЗАК · 3 БЛАСТЕР | '+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР · ЯЧЕЕК '+game.inventory.cell}[game.tool]));
-  if(active()){const aim=view.aim(innerWidth/2,innerHeight/2,game);text('#target',aim.resource?`${NAMES[aim.resource.type]} · ${Math.round(distance(game.player,aim.resource))} м · ЛКМ`:'Наведите прицел на обломок · ЛКМ: крюк');}else view.targetRing.visible=false;
+  view.render(game,controls,dt,active()?placement:null);text('#tool-status','1 КРЮК · 2 РЕЗАК · 3 БЛАСТЕР | '+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР · ЯЧЕЕК '+game.inventory.cell}[game.tool]));
+  if(active()&&!placement){const aim=view.aim(innerWidth/2,innerHeight/2,game);text('#target',aim.resource?`${NAMES[aim.resource.type]} · ${Math.round(distance(game.player,aim.resource))} м · ЛКМ`:'Наведите прицел на обломок · ЛКМ: крюк');}else view.targetRing.visible=false;
   $('#crosshair').hidden=!active()||!controls.locked();
 
+  const candidate=view.placementCandidate;
+  $('#placement-hud').hidden=!active()||!placement;
+  if(placement&&candidate){$('#placement-hud').classList.toggle('invalid',!candidate.valid);text('#placement-hud',BUILDABLES[placement.type].name+' · '+Math.round(placement.rotation*180/Math.PI)+'°\n'+candidate.reason+'\nЛКМ — поставить · R — повернуть · ПКМ / Esc — отмена');text('#target','');}
   updateUI();requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
