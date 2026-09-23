@@ -1,0 +1,118 @@
+import {DamageVision} from './damage-vision.js';
+import {createCargo} from './cargo.js';
+import {createGame,tick,launchHook,craft,attack,canCraft,RECIPES,NAMES,distance,onRaft,shoot} from './model.js';
+import {SpaceView,COLORS} from './render3d.js';
+import {createControls} from './controls.js';
+import {flightVector} from './spatial.js';
+import {resetMotion,GRAVITY} from './physics.js';
+import {DECK_TOP,EYE_HEIGHT} from './raft.js';
+const $=selector=>document.querySelector(selector),canvas=$('#space');
+const damageVision=new DamageVision(canvas,$('#damage-vision'));
+let menuOpen=false;let game=createGame(),started=false,paused=false,last=performance.now(),view;
+try{view=new SpaceView(canvas);}catch(error){$('#intro').textContent='Не удалось запустить WebGL 2. Откройте игру в браузере с аппаратным ускорением. '+error.message;$('#start').disabled=true;throw error;}
+$('#start').disabled=true;
+$('#start').textContent='ЗАГРУЗКА МОДЕЛЕЙ И ТЕКСТУР…';
+view.assetsReady.then(()=>{
+  document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='ВЫЙТИ НА ОРБИТУ ↗';
+}).catch(error=>{
+  document.body.dataset.assets='error';$('#intro').textContent='Не удалось загрузить модели или текстуру Земли. Обновите страницу. '+error.message;
+  $('#start').textContent='МОДЕЛИ НЕ ЗАГРУЖЕНЫ';console.error(error);
+});
+const canPlay=()=>started&&!paused&&!game.over&&!game.won;
+const active=()=>canPlay()&&!menuOpen;
+const hotbarTools=['hook','pulse','blaster',null,null,null,null,null,null,null];
+let hotbarIndex=0;
+function selectHotbar(index){hotbarIndex=(index+10)%10;const tool=hotbarTools[hotbarIndex];game.tool=tool&&(tool==='hook'||game.upgrades[tool])?tool:null;}
+const controls=createControls(canvas,{
+  lockError:()=>{game.log='Захват мыши отклонён браузером. Клик по игре — повторить.';},
+  active,pause,grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>attack(game),
+  home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+70});resetMotion(game.player);game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
+  cycle:step=>selectHotbar(hotbarIndex+step),
+  hook:(x,y)=>{if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
+  blur:()=>{if(active())pause();},
+});
+addEventListener('resize',()=>view.resize());
+
+const toolIcons={hook:'<path d="M13 5h8v9l-5 5v8a6 6 0 0 1-12 0v-4l4 4"/>',pulse:'<path d="M18 3 8 18h9l-4 15 12-19h-9z"/>',blaster:'<path d="M5 12h22v8H15l-2 10H7l2-10H5zM27 14h5v4h-5M10 8h12"/>'};
+$('#hotbar').innerHTML=hotbarTools.map((tool,i)=>`<button class="cargo-slot hotbar-slot" data-hotbar="${i}" aria-label="Слот ${i+1}" title="${tool?({hook:'Крюк',pulse:'Резак',blaster:'Бластер'}[tool]):'Пустой слот'}"><span class="slot-key">${(i+1)%10}</span>${tool?'<svg viewBox="0 0 36 36" aria-hidden="true">'+toolIcons[tool]+'</svg><span class="hotbar-name">'+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР'}[tool])+'</span>':''}</button>`).join('');
+for(const button of document.querySelectorAll('[data-hotbar]'))button.onclick=()=>{selectHotbar(Number(button.dataset.hotbar));if(active())controls.lock();};
+
+const cargo=createCargo($('#inventory'),NAMES,COLORS);
+$('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
+for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>{if(button.dataset.tool==='hook'||game.upgrades[button.dataset.tool]){selectHotbar(hotbarTools.indexOf(button.dataset.tool));updateUI();}};
+$('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.hidden;$('#cargo-tab').setAttribute('aria-pressed',String(!panel.hidden));};
+const categories={tools:['hook','pulse','blaster'],build:['hull','repairDock','solar','beacon'],repair:['repair']};
+$('#craft-categories').innerHTML=[['tools','Инструменты'],['build','Строительство'],['repair','Ремонт']].map(([id,label])=>'<button data-category="'+id+'">'+label+'</button>').join('');
+for(const button of document.querySelectorAll('[data-category]'))button.onclick=()=>{for(const recipe of document.querySelectorAll('[data-recipe]'))recipe.hidden=!categories[button.dataset.category].includes(recipe.dataset.recipe);for(const tab of document.querySelectorAll('[data-category]'))tab.classList.toggle('selected',tab===button);};
+$('#recipes').innerHTML=RECIPES.map(recipe=>`<button class="recipe" data-recipe="${recipe.id}"><strong>${recipe.name}<em>＋</em></strong><small>${recipe.desc}</small><small class="cost">${Object.entries(recipe.cost).map(([key,count])=>`${count} ${NAMES[key]}`).join(' · ')}</small></button>`).join('');
+for(const button of document.querySelectorAll('[data-recipe]'))button.onclick=()=>{if(canPlay())craft(game,button.dataset.recipe,flightVector(controls.yaw,0,1,0,0));if(game.won||game.over)showOutcome();updateUI();};
+document.querySelector('[data-category="tools"]').click();
+function text(selector,value){const element=$(selector);if(element.textContent!==String(value))element.textContent=value;}
+function updateUI(){
+  $('#hotbar').hidden=!started||paused||menuOpen||game.over||game.won;
+  for(const button of document.querySelectorAll('[data-hotbar]')){const index=Number(button.dataset.hotbar),tool=hotbarTools[index],owned=tool&&(tool==='hook'||game.upgrades[tool]);button.classList.toggle('selected',index===hotbarIndex);button.classList.toggle('unavailable',!owned);button.disabled=false;button.setAttribute('aria-pressed',String(index===hotbarIndex));}
+
+  cargo.render(game.inventory);
+  text('#cargo-summary','SALVAGE · '+Object.values(game.inventory).reduce((a,b)=>a+b,0)+' UNITS');
+  text('#cargo-health','TS–04');
+  for(const button of document.querySelectorAll('[data-tool]')){button.disabled=button.dataset.tool!=='hook'&&!game.upgrades[button.dataset.tool];button.classList.toggle('selected',button.dataset.tool===game.tool);}
+
+  text('#hullText',Math.max(0,Math.round(game.ship.hp))+' / '+game.ship.max);
+  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
+  text('#mode',!started?'3D / WEBGL':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
+  text('#objective',game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
+  text('#workshop',(onRaft(game)||distance(game.player,game.ship)<180)?'Палуба '+game.ship.modules+' секц. · крафт доступен':'Вне корабля · F: вернуться к мастерской');
+  for(const button of document.querySelectorAll('[data-recipe]')){const recipe=RECIPES.find(recipe=>recipe.id===button.dataset.recipe);button.disabled=!canPlay()||!canCraft(game,recipe);const icon=recipe.once&&game.upgrades[recipe.id]?'✓':'＋';if(button.querySelector('em').textContent!==icon)button.querySelector('em').textContent=icon;}
+  const stationDistance=distance(game.player,game.station);
+  text('#navigation',`ВЕКТОР ${Math.round(stationDistance)} м · BIRD ${Math.round(distance(game.player,game.ship))} м`);
+  text('#interaction',stationDistance<145?`Удерживайте R · ${game.station.stock?'груз '+game.station.stock+'/16':game.archive?'архив получен':'извлечение архива'} ${Math.round(game.station.progress/.6*100)}%`:onRaft(game)?'Магнитные ботинки · E: покинуть палубу · змейка не атакует':'Космос · Shift: торможение · Q/E: тяга · F: аварийный трос');
+  for(const [id,target,name] of [['station-marker',game.station,'ВЕКТОР'],['ship-marker',game.ship,'BIRD']]){
+    const marker=$('#'+id),point=view.waypoint(target,game),left=80,right=80;
+    marker.style.left=Math.max(left,Math.min(innerWidth-right,point.x))+'px';marker.style.top=Math.max(100,Math.min(innerHeight-180,point.y))+'px';
+    marker.textContent=`${point.inFront?'◇':'↶'} ${name} · ${point.distance} м`;marker.hidden=!started||paused||menuOpen;
+  }
+}
+function start(){setInventory(false,false);if(game.over||game.won){game=createGame();selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
+$('#start').onclick=start;
+
+function pause(){
+  if(!started||game.over||game.won)return;setInventory(false,false);paused=!paused;controls.clear();$('#overlay').hidden=!paused;if(paused)controls.unlock();
+  $('.welcome h1').innerHTML='BIRD<span>ОРБИТА НА ПАУЗЕ</span>';text('#intro','Симуляция остановлена. WASD — полёт, Q/E — вниз/вверх, мышь — обзор, ЛКМ — крюк, R — добыча.');$('.steps').hidden=true;text('#start','ПРОДОЛЖИТЬ');if(!paused){canvas.focus();controls.lock();}
+}
+$('#pause').onclick=pause;
+function showOutcome(){setInventory(false,false);controls.unlock();
+  $('#overlay').hidden=false;$('.welcome h1').innerHTML=game.won?'BIRD<span>СИГНАЛ ПРИНЯТ</span>':'BIRD<span>СВЯЗЬ ПОТЕРЯНА</span>';
+  text('#intro',game.won?`Аварийный канал TS-04 активен. Вы восстановили связь за ${Math.floor(game.time)} секунд. У этого корабля снова есть будущее.`:'Уборщик повредил робота или разрушил корпус. Создайте импульсный резак раньше и ремонтируйте корабль.');$('.steps').hidden=true;text('#start','НОВАЯ ЭКСПЕДИЦИЯ');
+}
+function frame(now){
+  const dt=Math.min((now-last)/1000,.04);last=now;
+  if(active()&&controls.locked()){tick(game,{...controls.input(),interact:controls.keys.has('KeyR')},dt);if(game.over||game.won)showOutcome();}
+  damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
+  view.render(game,controls,dt);text('#tool-status','1 КРЮК · 2 РЕЗАК · 3 БЛАСТЕР | '+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР · ЯЧЕЕК '+game.inventory.cell}[game.tool]));
+  if(active()){const aim=view.aim(innerWidth/2,innerHeight/2,game);text('#target',aim.resource?`${NAMES[aim.resource.type]} · ${Math.round(distance(game.player,aim.resource))} м · ЛКМ`:'Наведите прицел на обломок · ЛКМ: крюк');}else view.targetRing.visible=false;
+  $('#crosshair').hidden=!active()||!controls.locked();
+
+  updateUI();requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+
+
+function setInventory(open,resume=true){
+  menuOpen=open;controls.clear();if(open){$('#craft-panel').hidden=false;$('#cargo-tab').setAttribute('aria-pressed','true');}
+  $('#inventory-menu').hidden=!open;
+  document.body.classList.toggle('inventory-open',open);
+  if(open){controls.unlock();updateUI();$('#close-inventory').focus();}
+  else if(active()&&resume){canvas.focus();controls.lock();}
+}
+$('#open-inventory').onclick=()=>{if(canPlay())setInventory(true);};
+$('#close-inventory').onclick=()=>setInventory(false);
+$('#inventory-menu').onclick=event=>{if(event.target===$('#inventory-menu'))setInventory(false);};
+addEventListener('keydown',event=>{
+  if(event.code==='Tab'){
+    event.preventDefault();event.stopImmediatePropagation();
+    if(!event.repeat&&canPlay())setInventory(!menuOpen);
+  }else if(event.code==='Escape'&&menuOpen){
+    event.preventDefault();event.stopImmediatePropagation();setInventory(false);
+  }
+},true);

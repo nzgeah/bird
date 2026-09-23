@@ -1,0 +1,23 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>BIRD — модели платформы и змейки</title>
+<style>body{margin:0;background:#081320;color:#cbe6eb;font:14px system-ui}canvas{display:block;width:100vw;height:100vh}header{position:fixed;top:20px;left:24px}h1{font-size:20px}p{color:#86a6b3}button{background:#183743;color:#cbe6eb;border:1px solid #426878;padding:10px;margin-right:8px;cursor:pointer}</style>
+<header><h1>Платформа и змейка / GLB</h1><p id="status">Загрузка моделей…</p><button id="platform">Платформа</button><button id="snake">Змейка</button><button id="both">Обе модели</button></header><canvas></canvas>
+<script type="module">
+import * as THREE from '../vendor/three.module.js';
+import {loadGameAssets} from '../src/assets.js';
+const scene=new THREE.Scene();scene.background=new THREE.Color('#081320');
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,3000);
+const renderer=new THREE.WebGLRenderer({canvas:document.querySelector('canvas'),antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.toneMapping=THREE.ACESFilmicToneMapping;
+scene.add(new THREE.HemisphereLight('#d7e8ff','#53616f',2.5));const light=new THREE.DirectionalLight('#ffe9cd',3);light.position.set(200,350,150);scene.add(light);
+const assets=await loadGameAssets();
+const platform=assets.platform.clone(true);platform.position.set(-100,0,0);scene.add(platform);
+const snake=new THREE.Group();scene.add(snake);snake.position.set(70,0,60);snake.add(assets.snake.head,...assets.snake.segments);
+assets.snake.head.position.set(0,20,0);
+assets.snake.segments.forEach((part,i)=>{part.position.set(Math.sin(i*.28)*22,20,-28-i*13);part.lookAt(Math.sin((i-1)*.28)*22,20,-28-(i-1)*13);});
+const show=(position,target)=>{camera.position.set(...position);camera.lookAt(...target);renderer.render(scene,camera);};
+document.querySelector('#platform').onclick=()=>show([-15,130,130],[-100,0,0]);
+document.querySelector('#snake').onclick=()=>show([260,175,230],[70,20,-45]);
+document.querySelector('#both').onclick=()=>show([320,310,430],[0,0,-40]);
+document.querySelector('#status').textContent='Модели загружены · авторские материалы и свечение сохранены';
+show([320,310,430],[0,0,-40]);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.render(scene,camera);});
+</script></html>

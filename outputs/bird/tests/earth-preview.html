@@ -1,0 +1,16 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>BIRD — текстура Земли</title>
+<style>body{margin:0;background:#050a14;color:#d8eef4;font:14px system-ui}canvas{width:100vw;height:100vh;display:block}p{position:fixed;left:24px;top:12px;background:#061421b0;padding:12px}</style>
+<canvas></canvas><p id="status">Загрузка Земли…</p>
+<script type="module">
+import {SpaceView} from '../src/render3d.js';
+import {createGame} from '../src/model.js';
+const view=new SpaceView(document.querySelector('canvas'));
+await view.assetsReady;
+const game=createGame();game.resources=[];
+Object.assign(game.player,{x:-1200,y:-4700,z:5100});
+view.hand.visible=false;
+view.render(game,{yaw:0,pitch:0},0);
+const texture=view.planet.material.map;
+document.querySelector('#status').textContent=`Земля · ${texture.image.width} × ${texture.image.height} · sRGB · текстура загружена`;
+addEventListener('resize',()=>{view.resize();view.render(game,{yaw:0,pitch:0},0);});
+</script></html>
