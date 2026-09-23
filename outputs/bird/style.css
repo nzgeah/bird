@@ -38,3 +38,11 @@ body>header,.compact-hud,body>footer,.flight-hud,.waypoint{display:none!importan
 @media(max-width:600px){#hotbar{gap:4px;padding:6px;bottom:12px}.hotbar-name{display:none}.hotbar-slot .slot-key{font-size:8px;top:3px;left:7px}}
 
 #inventory-menu .inventory-window{overflow:visible;position:relative;margin-left:320px}#craft-panel{position:absolute;right:calc(100% + 18px);top:0;width:300px;max-height:90vh;background:linear-gradient(150deg,#18212b,#0e141a);border:1px solid #30404c;border-radius:8px;padding:20px;box-shadow:0 20px 50px #0006}#craft-panel h2{letter-spacing:2px;font-size:15px;color:#c3cfd7}#craft-categories{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}#craft-categories button{font-size:10px;padding:7px}#craft-categories .selected{border-color:#68d7df;color:#b7faff}.cargo-diagnostics{display:none}@media(max-width:760px){#inventory-menu .inventory-window{margin-left:0;overflow:auto}#craft-panel{position:static;width:auto;max-height:45vh;margin:14px;box-shadow:none}}
+
+/* Inventory previews use the same meshes as the world. */
+.cargo-thumbnail{width:64px;height:52px;object-fit:contain;display:block;margin:auto;pointer-events:none}
+.cargo-selection{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;min-height:54px;color:#c2d8df;font-size:12px;border-top:1px solid #344750}
+#place-item{padding:10px 16px;background:#244c43;color:#baffdf;border:1px solid #65c6a0;cursor:pointer;white-space:nowrap}
+#placement-hud{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:8;max-width:560px;width:max-content;padding:14px 22px;border:1px solid #6effa4;background:#081812ed;color:#baffd1;text-align:center;pointer-events:none;white-space:pre-line;font-size:14px;border-radius:8px}
+#placement-hud.invalid{border-color:#ff6573;background:#240d13ed;color:#ffc1c9}
+.cargo-grid{max-height:44vh;overflow-y:auto}

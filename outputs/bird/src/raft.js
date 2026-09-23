@@ -1,3 +1,4 @@
+import {objectBounds} from './placement.js';
 // One shared layout drives both visible geometry and collision detection.
 export const TILE=96, DECK_TOP=8, EYE_HEIGHT=24, BODY_RADIUS=8;
 export function initialTiles(){const tiles=[];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)tiles.push({x,z});return tiles;}
@@ -6,7 +7,7 @@ export function onRaft(g){
  if(!deckAt(g,g.player.x,g.player.z))return false;
  const feet=g.player.y-EYE_HEIGHT;
  if(Math.abs(feet-(g.ship.y+DECK_TOP))<.6)return true;
- return (g.ship.objects??[]).some(o=>Math.abs(g.player.x-g.ship.x-o.x)<16&&Math.abs(g.player.z-g.ship.z-o.z)<13&&Math.abs(feet-(g.ship.y+DECK_TOP+22))<.6);
+ return (g.ship.objects??[]).some(o=>{const b=objectBounds(o),x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6;});
 }
 export function nextTile(g,direction={x:0,z:-1}){
  const tiles=g.ship.tiles??[],occupied=new Set(tiles.map(t=>`${t.x},${t.z}`)),candidates=new Map();
@@ -18,7 +19,7 @@ export function nextTile(g,direction={x:0,z:-1}){
 }
 export function raftColliders(g){
  const boxes=(g.ship.tiles??[]).map(t=>({min:{x:g.ship.x+t.x*TILE-TILE/2,y:g.ship.y-8,z:g.ship.z+t.z*TILE-TILE/2},max:{x:g.ship.x+t.x*TILE+TILE/2,y:g.ship.y+DECK_TOP,z:g.ship.z+t.z*TILE+TILE/2}}));
- for(const o of g.ship.objects??[])boxes.push({min:{x:g.ship.x+o.x-16,y:g.ship.y+DECK_TOP,z:g.ship.z+o.z-13},max:{x:g.ship.x+o.x+16,y:g.ship.y+DECK_TOP+22,z:g.ship.z+o.z+13}});
+ for(const o of g.ship.objects??[]){const b=objectBounds(o);boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});}
  return boxes;
 }
 function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x&&p.x-BODY_RADIUS<b.max.x&&p.z+BODY_RADIUS>b.min.z&&p.z-BODY_RADIUS<b.max.z&&p.y+4>b.min.y&&p.y-EYE_HEIGHT<b.max.y;}
@@ -38,10 +39,4 @@ export function moveWithCollisions(g,delta){
  const height=g.ship.y+DECK_TOP+EYE_HEIGHT;
  if(delta.y<0&&deckAt(g,g.player.x,g.player.z)&&g.player.y>=height&&g.player.y<height+3){g.player.y=height;contacts.add('y');}
  return contacts;
-}
-export function placeObject(g,type){
- const used=new Set((g.ship.objects??[]).map(o=>`${o.x},${o.z}`));
- const tile=g.ship.tiles.find(t=>!used.has(`${t.x*TILE},${t.z*TILE}`)&&Math.hypot(g.player.x-g.ship.x-t.x*TILE,g.player.z-g.ship.z-t.z*TILE)>40);
- if(!tile)return false;
- g.ship.objects.push({type,x:tile.x*TILE,z:tile.z*TILE});return true;
 }

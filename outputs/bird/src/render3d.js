@@ -1,3 +1,5 @@
+import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
+import {validatePlacement} from './placement.js';
 import * as THREE from '../vendor/three.module.js';
 import {SCRAP_VARIANTS} from './variants.js';
 import {flightVector, distance} from './spatial.js';
@@ -15,6 +17,24 @@ function material(color,glow=false){
 function box(parent,dimensions,position,color,glow=false){
   const mesh=new THREE.Mesh(cube,material(color,glow));
   mesh.scale.set(...dimensions);mesh.position.set(...position);parent.add(mesh);return mesh;
+}
+function buildMesh(type,platform){
+  const group=new THREE.Group();
+  if(type==='hull'){
+    if(platform){const mesh=platform.clone(true);mesh.position.y=-DECK_TOP;group.add(mesh);}
+    else box(group,[96,16,96],[0,-8,0],'#536b75');
+    return group;
+  }
+  box(group,[32,22,26],[0,11,0],'#61747d');
+  box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
+  if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');
+  if(type==='beacon')box(group,[3,50,3],[0,45,0],'#a9ffe1',true);
+  return group;
+}
+function resourceMesh(resource,templates){
+  resourceKey(resource);
+  if(resource.type==='metal'&&templates){const mesh=templates[resource.variant].clone(true);mesh.userData.sharedAsset=true;return mesh;}
+  return new THREE.Mesh(resource.type==='cell'?new THREE.OctahedronGeometry(12):new THREE.BoxGeometry(18,resource.type==='metal'?7:13,14),material(COLORS[resource.type],true));
 }
 function orientSmooth(object,target,dt,snap){
   const previous=object.quaternion.clone();
@@ -101,13 +121,7 @@ export class SpaceView{
       for(let k=-2;k<=2;k++)box(this.ship,[1,.15,TILE-8],[x+k*17,DECK_TOP+.05,z],'#708788');
       for(const side of [-1,1])box(this.ship,[3,.2,TILE-4],[x+side*(TILE/2-3),DECK_TOP+.1,z],'#c4a873');
     }
-    for(const o of game.ship.objects){
-      const x=o.x,z=o.z;
-      box(this.ship,[32,22,26],[x,DECK_TOP+11,z],'#61747d');
-      box(this.ship,[24,1,18],[x,DECK_TOP+22,z],o.type==='repairDock'?'#dfab69':'#68b6b0',true);
-      if(o.type==='solar')for(const side of [-1,1])box(this.ship,[30,2,24],[x+side*33,DECK_TOP+19,z],'#28599a');
-      if(o.type==='beacon')box(this.ship,[3,50,3],[x,DECK_TOP+45,z],'#a9ffe1',true);
-    }
+    for(const o of game.ship.objects){const mesh=buildMesh(o.type,this.platformTemplate);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;this.ship.add(mesh);}
   }  syncResources(game){
     const visibleResources=game.hook?.resource?[...game.resources,game.hook.resource]:game.resources;
       const live=new Set(visibleResources);
@@ -115,14 +129,7 @@ export class SpaceView{
     for(const resource of visibleResources){
       let mesh=this.resourceMeshes.get(resource);
         if(!mesh){
-          if(resource.type==='metal'&&this.floatingTemplates){
-            resource.variant??=SCRAP_VARIANTS[Math.abs(Math.floor(resource.x+resource.y+resource.z))%SCRAP_VARIANTS.length];
-            mesh=this.floatingTemplates[resource.variant]?.clone(true)??this.floatingTemplates[SCRAP_VARIANTS[0]].clone(true);
-            mesh.userData.sharedAsset=true;
-          }else{
-            const geometry=resource.type==='cell'?new THREE.OctahedronGeometry(12):new THREE.BoxGeometry(18,resource.type==='metal'?7:13,14);
-            mesh=new THREE.Mesh(geometry,material(COLORS[resource.type],true));
-          }
+          mesh=resourceMesh(resource,this.floatingTemplates);
           this.resourceMeshes.set(resource,mesh);this.scene.add(mesh);
         }
       mesh.position.set(resource.x,resource.y,resource.z);mesh.rotation.set(game.time*.12+resource.x*.01,game.time*.18+resource.z*.01,0);
@@ -137,6 +144,37 @@ export class SpaceView{
         }
       }
     }
+  itemThumbnails(){
+    const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});renderer.setSize(128,96);renderer.outputColorSpace=THREE.SRGBColorSpace;
+    const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight(0xffffff,0x456070,3));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(3,5,4);scene.add(light);
+    const camera=new THREE.PerspectiveCamera(35,128/96,.01,2000),result={};
+    for(const key of Object.keys(ITEM_NAMES)){
+      const object=BUILDABLES[key]?buildMesh(key,this.platformTemplate):resourceMesh({type:SCRAP_VARIANTS.includes(key)?'metal':key,variant:SCRAP_VARIANTS.includes(key)?key:undefined},this.floatingTemplates);
+      const bounds=new THREE.Box3().setFromObject(object),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+      object.position.sub(center);scene.add(object);const extent=Math.max(size.x,size.y,size.z,1);camera.position.set(extent*1.6,extent*1.2,extent*1.8);camera.lookAt(0,0,0);renderer.render(scene,camera);
+      result[key]=renderer.domElement.toDataURL();scene.remove(object);
+      if(!BUILDABLES[key]&&!object.userData.sharedAsset)object.geometry?.dispose();
+    }
+    renderer.dispose();renderer.forceContextLoss();return result;
+  }
+  placementTarget(game,type,rotation=0){
+    this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
+    const hit=this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(game.ship.y+DECK_TOP)),new THREE.Vector3());
+    if(!hit)return {type,x:NaN,z:NaN,rotation,valid:false,reason:'Наведите прицел на палубу'};
+    const grid=type==='hull'?TILE:4,x=Math.round((hit.x-game.ship.x)/grid)*grid,z=Math.round((hit.z-game.ship.z)/grid)*grid;
+    return {type,x,z,rotation,...validatePlacement(game,type,x,z,rotation)};
+  }
+  showPlacement(game,candidate){
+    if(!candidate){if(this.ghost)this.ghost.visible=false;return;}
+    if(this.ghostType!==candidate.type){
+      if(this.ghost){this.scene.remove(this.ghost);this.ghost.traverse(n=>{if(n.isMesh)n.material.dispose();});}
+      this.ghost=buildMesh(candidate.type,this.platformTemplate);this.ghostType=candidate.type;
+      this.ghost.traverse(n=>{if(n.isMesh)n.material=new THREE.MeshBasicMaterial({color:0x55ff99,transparent:true,opacity:.38,depthWrite:false,side:THREE.DoubleSide});});
+      const spec=BUILDABLES[candidate.type];const outline=new THREE.Mesh(new THREE.BoxGeometry(spec.width,.4,spec.depth),new THREE.MeshBasicMaterial({color:0x55ff99,wireframe:true,transparent:true,opacity:.95}));outline.position.y=.6;outline.userData.previewOutline=true;this.ghost.add(outline);this.scene.add(this.ghost);
+    }
+    this.ghost.visible=Number.isFinite(candidate.x)&&Number.isFinite(candidate.z);
+    if(this.ghost.visible){this.ghost.position.set(game.ship.x+candidate.x,game.ship.y+DECK_TOP+.15,game.ship.z+candidate.z);this.ghost.rotation.y=candidate.rotation;this.ghost.traverse(n=>{if(n.isMesh)n.material.color.set(candidate.valid?0x55ff99:0xff4058);});}
+  }
   // Raycasts against actual 3D debris volumes, never a flat collection plane.
   aim(clientX,clientY,game){
     const rect=this.canvas.getBoundingClientRect();this.pointer.set((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1);
@@ -147,7 +185,7 @@ export class SpaceView{
     if(closest){this.targetRing.position.set(closest.x,closest.y,closest.z);this.targetRing.quaternion.copy(this.camera.quaternion);}
     return {target:closest??this.raycaster.ray.at((game.upgrades.hook?820:520)+190,new THREE.Vector3()),resource:closest};
   }
-  render(game,look,dt){
+  render(game,look,dt,placement=null){
     this.rebuildShip(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
     const forward=flightVector(look.yaw,look.pitch,1,0,0),position=this.robot.position;
     this.camera.position.copy(position);
@@ -175,6 +213,8 @@ export class SpaceView{
     this.hook.visible=this.cable.visible=!!game.hook;
     if(game.hook){const h=game.hook;this.hook.position.set(h.x,h.y,h.z);const points=this.cable.geometry.attributes.position;points.setXYZ(0,position.x,position.y,position.z);points.setXYZ(1,h.x,h.y,h.z);points.needsUpdate=true;this.cable.geometry.computeBoundingSphere();}
     this.pulse.visible=game.pulse>0;this.pulse.position.copy(position);this.pulse.scale.setScalar(Math.max(1,210*(1-game.pulse/.4)));this.pulse.material.opacity=game.pulse*.7;
+    if(placement){this.placementCandidate=this.placementTarget(game,placement.type,placement.rotation);this.showPlacement(game,this.placementCandidate);this.hand.visible=false;this.targetRing.visible=false;}
+    else{this.placementCandidate=null;this.showPlacement(game,null);}
     this.scene.updateMatrixWorld();this.renderer.render(this.scene,this.camera);
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}

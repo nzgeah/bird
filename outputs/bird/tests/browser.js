@@ -1,3 +1,4 @@
+import {placeFromInventory} from '../src/placement.js';
 import {SpaceView} from '../src/render3d.js';
 import {createControls} from '../src/controls.js';
 import {createGame,tick,launchHook,craft,onRaft,updateEnemy,move} from '../src/model.js';
@@ -63,7 +64,7 @@ document.querySelector('#run').onclick=async()=>{
     for(let i=0;i<180;i++)updateEnemy(raft,1/60);
     assert(raft.player.hp===100&&raft.ship.hp===120,'Raft must be safe');
     move(raft,{y:-1},1);assert(onRaft(raft),'Physical floor must stop downward motion');
-    raft.inventory={metal:20,polymer:20,circuit:20,cell:20};craft(raft,'hull',{x:1,z:0});craft(raft,'repairDock');craft(raft,'blaster');
+    raft.inventory={metal:20,polymer:20,circuit:20,cell:20};craft(raft,'hull');placeFromInventory(raft,'hull',192,0);craft(raft,'repairDock');placeFromInventory(raft,'repairDock',0,0);craft(raft,'blaster');
     view.render(raft,controls,1/60);
     assert(raft.ship.tiles.length===10&&raft.ship.objects.length===1&&raft.upgrades.blaster,'Craft must extend solid deck and add object/weapon');
     results.push('PASS — solid raft, safety against overlapping snake, crafted expansion, object and weapon');
@@ -84,5 +85,4 @@ document.querySelector('#run').onclick=async()=>{
     output.textContent=results.join('\n')+'\n\n'+results.length+' / '+results.length+' passed';
   }catch(error){output.textContent=results.join('\n')+'\nFAIL: '+error.message;console.error(error);}
 };
-
 
