@@ -16,7 +16,7 @@ export function advancePlayer(g,input,elapsed){
  for(let step=0;step<steps;step++){
    const grounded=onRaft(g),length=Math.max(1,Math.hypot(input.x??0,input.y??0,input.z??0));
    if(grounded&&(input.y??0)<=0){
-     const speed=input.brake?0:85,rate=(input.x||input.z)?220:320;
+     const speed=input.brake?0:input.sprint?145:85,rate=(input.x||input.z)?(input.sprint?330:220):320;
      const dx=(input.x??0)/length,dz=(input.z??0)/length;
      // Limit total horizontal acceleration, including diagonal starts and stops.
      const ex=dx*speed-v.x,ez=dz*speed-v.z,l=Math.hypot(ex,ez)||1,f=Math.min(1,rate*dt/l);
@@ -24,7 +24,7 @@ export function advancePlayer(g,input,elapsed){
    }else{
      if(grounded)v.y=Math.max(v.y,22); // deliberate magnetic-boot release
      const a=orbitalAcceleration({x:p.x-g.ship.x,y:p.y-g.ship.y,z:p.z-g.ship.z},v);
-     for(const axis of axes)v[axis]+=(a[axis]+(input[axis]??0)/length*38)*dt;
+     for(const axis of axes)v[axis]+=(a[axis]+(input[axis]??0)/length*(input.sprint?65:38))*dt;
      if(input.brake){const speed=Math.hypot(v.x,v.y,v.z),scale=Math.max(0,1-65*dt/(speed||1));for(const axis of axes)v[axis]*=scale;}
      const feet=p.y-EYE_HEIGHT-(g.ship.y+DECK_TOP);
      if((input.y??0)<=0&&feet>0&&feet<12&&deckAt(g,p.x,p.z))v.y-=55*dt;

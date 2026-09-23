@@ -4,7 +4,7 @@ import {createGame,craft,canCraft,RECIPES,collect,launchHook,updateResources,tic
 import {placeFromInventory,validatePlacement,objectBounds} from '../src/placement.js';
 import {addResource,cargoValues,spendResource} from '../src/items.js';
 import {raftColliders} from '../src/raft.js';
-const stocked=()=>{const g=createGame();for(const type of ['metal','polymer','circuit','cell'])addResource(g,{type},50);return g;};
+const stocked=()=>{const g=createGame();g.player.z=70;g.ship.tiles=[];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)g.ship.tiles.push({x,z});g.ship.modules=9;for(const type of ['metal','polymer','circuit','cell'])addResource(g,{type},50);return g;};
 test('craft stores a building; rejected placement preserves it; valid placement consumes exactly one',()=>{
  const g=stocked();assert.ok(craft(g,'repairDock'));assert.equal(g.ship.objects.length,0);assert.equal(g.upgrades.repairDock,undefined);
  assert.equal(canCraft(g,RECIPES.find(r=>r.id==='repairDock')),false);
@@ -14,8 +14,8 @@ test('craft stores a building; rejected placement preserves it; valid placement 
 });
 test('solar wings, clearance, rotation and deck edges all affect placement',()=>{
  const g=stocked();g.buildInventory={solar:2,repairDock:2};
- assert.equal(validatePlacement(g,'solar',110,0,0).valid,false);
- assert.equal(validatePlacement(g,'solar',110,0,Math.PI/2).valid,true);
+ assert.equal(validatePlacement(g,'solar',100,0,0).valid,false);
+ assert.equal(validatePlacement(g,'solar',100,0,Math.PI/2).valid,true);
  assert.ok(placeFromInventory(g,'solar',0,-40));
  assert.equal(validatePlacement(g,'repairDock',62,-40).valid,false);
  assert.equal(validatePlacement(g,'repairDock',68,-40).valid,true);
@@ -30,8 +30,8 @@ test('footprint cannot bridge a missing tile, but can straddle adjacent tiles',(
 });
 test('hull snaps to a neighbouring tile; cannot overlap, float away, or be placed out of reach',()=>{
  const g=stocked();craft(g,'hull');assert.equal(g.ship.modules,9);
- for(const [x,z] of [[0,0],[190,0],[192,192],[960,0]])assert.equal(placeFromInventory(g,'hull',x,z),false);
- assert.ok(placeFromInventory(g,'hull',192,0));assert.equal(g.ship.modules,10);assert.equal(g.ship.max,160);
+ for(const [x,z] of [[0,0],[190,0],[160,160],[960,0]])assert.equal(placeFromInventory(g,'hull',x,z),false);
+ assert.ok(placeFromInventory(g,'hull',160,0));assert.equal(g.ship.modules,10);assert.equal(g.ship.max,160);
 });
 test('preview bounds match collision boxes for a rotated solar panel',()=>{
  const g=stocked();g.buildInventory.solar=1;placeFromInventory(g,'solar',80,0,Math.PI/2);

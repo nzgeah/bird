@@ -1,7 +1,7 @@
 import {SCRAP_VARIANTS} from './variants.js';
 
 export const BUILDABLES={
-  hull:{name:'Секция палубы',width:96,depth:96,height:16},
+  hull:{name:'Секция палубы',width:80,depth:80,height:16},
   repairDock:{name:'Ремонтный станок',width:32,depth:26,height:22},
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},
   beacon:{name:'Навигационный маяк',width:32,depth:26,height:70},
@@ -16,8 +16,22 @@ export function resourceKey(resource){
   return resource.variant&&SCRAP_VARIANTS.includes(resource.variant)?resource.variant:resource.type;
 }
 export function addResource(g,resource,count=1){
+  if(resource.itemKey){const key=resource.itemKey;if(BUILDABLES[key])g.buildInventory[key]=(g.buildInventory[key]??0)+count;else if(['hook','pulse','blaster'].includes(key)){g.droppedTools??={};delete g.droppedTools[key];}return;}
   const key=resourceKey(resource);g.inventory[resource.type]=(g.inventory[resource.type]??0)+count;
   g.cargo??={};g.cargo[key]=(g.cargo[key]??0)+count;
+}
+export function toolCount(g,key){return (key==='hook'||g.upgrades[key])&&!g.droppedTools?.[key]?1:0;}
+export function dropItem(g,key,direction){
+  if(!key||g.over||g.won)return false;
+  const tool=['hook','pulse','blaster'].includes(key);
+  if(tool){if(!toolCount(g,key))return false;g.droppedTools??={};g.droppedTools[key]=true;}
+  else if(BUILDABLES[key]){if(!(g.buildInventory[key]>0))return false;g.buildInventory[key]--;}
+  else{if(!(cargoValues(g)[key]>0))return false;const type=resourceType(key);g.inventory[type]--;if(g.cargo[key]>0){g.cargo[key]--;if(!g.cargo[key])delete g.cargo[key];}}
+  const length=Math.hypot(direction.x,direction.y,direction.z)||1;
+  const r={type:tool||BUILDABLES[key]?'item':resourceType(key),pickupAfter:g.time+.6};
+  if(tool||BUILDABLES[key])r.itemKey=key;else if(SCRAP_VARIANTS.includes(key))r.variant=key;
+  for(const axis of ['x','y','z']){const d=direction[axis]/length;r[axis]=g.player[axis]+d*42;r['v'+axis]=(g.player.velocity?.[axis]??0)+d*65;}
+  g.resources.push(r);if(tool)g.tool=null;return true;
 }
 export function spendResource(g,type,count){
   g.inventory[type]-=count;

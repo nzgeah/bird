@@ -1,6 +1,6 @@
 import {BUILDABLES} from './items.js';
 
-export const TILE_SIZE=96, PLACEMENT_GAP=4, BUILD_REACH=230;
+export const TILE_SIZE=80, PLACEMENT_GAP=4, BUILD_REACH=230;
 export function objectBounds(object){
   const spec=BUILDABLES[object.type];
   const rotated=Math.abs(Math.round((object.rotation??0)/(Math.PI/2)))%2;
@@ -19,13 +19,13 @@ export function validatePlacement(g,type,x,z,rotation=0){
     if(!Number.isInteger(tx)||!Number.isInteger(tz))return fail('Секция должна совпадать с сеткой');
     if(g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Здесь уже есть палуба');
     if(!g.ship.tiles.some(t=>Math.abs(t.x-tx)+Math.abs(t.z-tz)===1))return fail('Нужен соседний край палубы');
-    if(Math.abs(g.player.x-g.ship.x-x)<56&&Math.abs(g.player.z-g.ship.z-z)<56&&g.player.y-24<g.ship.y+8&&g.player.y+4>g.ship.y-8)return fail('Отойдите от места установки');
+    if(Math.abs(g.player.x-g.ship.x-x)<TILE_SIZE/2+8&&Math.abs(g.player.z-g.ship.z-z)<TILE_SIZE/2+8&&g.player.y-24<g.ship.y+8&&g.player.y+4>g.ship.y-8)return fail('Отойдите от места установки');
     return {valid:true,reason:'Можно поставить'};
   }
   const b=objectBounds({type,x,z,rotation});
   // Check every intersected tile, including holes and concave deck edges.
-  for(let tx=Math.floor((b.minX+48)/96);tx<=Math.floor((b.maxX+48-1e-6)/96);tx++)
-    for(let tz=Math.floor((b.minZ+48)/96);tz<=Math.floor((b.maxZ+48-1e-6)/96);tz++)
+  for(let tx=Math.floor((b.minX+TILE_SIZE/2)/TILE_SIZE);tx<=Math.floor((b.maxX+TILE_SIZE/2-1e-6)/TILE_SIZE);tx++)
+    for(let tz=Math.floor((b.minZ+TILE_SIZE/2)/TILE_SIZE);tz<=Math.floor((b.maxZ+TILE_SIZE/2-1e-6)/TILE_SIZE);tz++)
       if(!g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Объект выходит за край палубы');
   for(const object of g.ship.objects){
     const other=objectBounds(object);
@@ -39,7 +39,7 @@ export function placeFromInventory(g,type,x,z,rotation=0){
   const result=validatePlacement(g,type,x,z,rotation);
   if(!result.valid){g.log=result.reason;return false;}
   g.buildInventory[type]--;
-  if(type==='hull'){g.ship.tiles.push({x:x/96,z:z/96});g.ship.modules++;g.ship.max+=40;g.ship.hp+=40;}
+  if(type==='hull'){g.ship.tiles.push({x:x/TILE_SIZE,z:z/TILE_SIZE});g.ship.modules++;g.ship.max+=40;g.ship.hp+=40;}
   else {g.ship.objects.push({type,x,z,rotation});g.upgrades[type]=true;}
   g.log='Установлено: '+BUILDABLES[type].name;
   if(type==='beacon'){g.won=true;g.log='Сигнал принят. BIRD снова в сети.';}

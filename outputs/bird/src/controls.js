@@ -6,11 +6,11 @@ export function createControls(canvas,actions){
   state.input=()=>({...flightVector(state.yaw,actions.grounded?.()?0:state.pitch,
     Number(state.keys.has('KeyW')||state.keys.has('ArrowUp'))-Number(state.keys.has('KeyS')||state.keys.has('ArrowDown')),
     Number(state.keys.has('KeyD')||state.keys.has('ArrowRight'))-Number(state.keys.has('KeyA')||state.keys.has('ArrowLeft')),
-    Number(state.keys.has('KeyE'))-Number(state.keys.has('KeyQ'))),brake:state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')});
+    Number(state.keys.has('Space'))-Number(state.keys.has('ControlLeft')||state.keys.has('ControlRight'))),sprint:state.keys.has('ShiftLeft')||state.keys.has('ShiftRight')});
   addEventListener('keydown',event=>{
     if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code))event.preventDefault();
     if(event.code==='Escape'&&!event.repeat){if(!actions.cancel?.())actions.pause();return;}if(!actions.active())return;
-    if(actions.key?.(event.code,event.repeat)){event.preventDefault();return;}state.keys.add(event.code);if(/^Digit[0-9]$/.test(event.code))actions.select?.(event.code); if(!event.repeat&&event.code==='Space')actions.attack();if(!event.repeat&&event.code==='KeyF')actions.home();
+    if(actions.key?.(event.code,event.repeat)){event.preventDefault();return;}state.keys.add(event.code);if(/^Digit[0-9]$/.test(event.code))actions.select?.(event.code);if(!event.repeat&&event.code==='KeyF')actions.home();
   });
   addEventListener('keyup',event=>state.keys.delete(event.code));
   addEventListener('blur',()=>{state.clear();actions.blur();});

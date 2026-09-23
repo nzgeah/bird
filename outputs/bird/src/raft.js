@@ -1,7 +1,8 @@
 import {objectBounds} from './placement.js';
+import {snakeSpheres} from './snake-hitbox.js';
 // One shared layout drives both visible geometry and collision detection.
-export const TILE=96, DECK_TOP=8, EYE_HEIGHT=24, BODY_RADIUS=8;
-export function initialTiles(){const tiles=[];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)tiles.push({x,z});return tiles;}
+export const TILE=80, DECK_TOP=8, EYE_HEIGHT=24, BODY_RADIUS=8;
+export function initialTiles(){return [{x:0,z:0},{x:1,z:0},{x:0,z:1},{x:1,z:1}];}
 export function deckAt(g,x,z){return g.ship.tiles?.some(t=>Math.abs(x-g.ship.x-t.x*TILE)<TILE/2&&Math.abs(z-g.ship.z-t.z*TILE)<TILE/2);}
 export function onRaft(g){
  if(!deckAt(g,g.player.x,g.player.z))return false;
@@ -26,6 +27,8 @@ function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x&&p.x-BODY_RADIUS<b.max.x&&
 export function moveWithCollisions(g,delta){
  const contacts=new Set();
  const steps=Math.max(1,Math.ceil(Math.hypot(delta.x,delta.y,delta.z)/4)),boxes=raftColliders(g);
+ // Preserve the safe deck; outside it the head and visible body are solid.
+ if(g.enemy&&!onRaft(g))for(const p of snakeSpheres(g.enemy))boxes.push({min:{x:p.x-p.radius,y:p.y-p.radius,z:p.z-p.radius},max:{x:p.x+p.radius,y:p.y+p.radius,z:p.z+p.radius}});
  for(let step=0;step<steps;step++)for(const axis of ['x','z','y']){
    const amount=delta[axis]/steps;if(!amount)continue;
    const p=g.player;p[axis]+=amount;

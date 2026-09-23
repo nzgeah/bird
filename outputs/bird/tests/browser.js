@@ -32,7 +32,7 @@ document.querySelector('#run').onclick=async()=>{
     };
     press('KeyW');assert(game.player.z< -4&&Math.abs(game.player.x)<.1,'W must change depth');
     press('KeyD');assert(game.player.x>4,'D must change X');
-    press('KeyE');assert(game.player.y>4,'E must change Y');
+    press('Space');assert(game.player.y>4,'E must change Y');
     results.push('PASS — keyboard → controls → simulation: X, Y, Z change independently');
     const before={...game.player};controls.yaw=Math.PI/2;press('KeyW');assert(game.player.x>before.x+4,'Yaw must rotate flight');
     results.push('PASS — camera yaw changes forward flight direction');

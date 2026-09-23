@@ -22,7 +22,7 @@ function buildMesh(type,platform){
   const group=new THREE.Group();
   if(type==='hull'){
     if(platform){const mesh=platform.clone(true);mesh.position.y=-DECK_TOP;group.add(mesh);}
-    else box(group,[96,16,96],[0,-8,0],'#536b75');
+    else box(group,[TILE,16,TILE],[0,-8,0],'#536b75');
     return group;
   }
   box(group,[32,22,26],[0,11,0],'#61747d');
@@ -32,6 +32,7 @@ function buildMesh(type,platform){
   return group;
 }
 function resourceMesh(resource,templates){
+  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3());group.scale.setScalar(28/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
   resourceKey(resource);
   if(resource.type==='metal'&&templates){const mesh=templates[resource.variant].clone(true);mesh.userData.sharedAsset=true;return mesh;}
   return new THREE.Mesh(resource.type==='cell'?new THREE.OctahedronGeometry(12):new THREE.BoxGeometry(18,resource.type==='metal'?7:13,14),material(COLORS[resource.type],true));
@@ -192,6 +193,12 @@ export class SpaceView{
     this.camera.lookAt(position.clone().add(new THREE.Vector3(forward.x,forward.y,forward.z)));
     this.hand.children[1].material=material(game.tool==='blaster'?'#ffc279':game.tool==='pulse'?'#b8a5ff':'#76d9c5',true);
     this.hand.visible=!!game.tool;
+    const held=game.heldItem&&!['hook','pulse','blaster'].includes(game.heldItem)?game.heldItem:null;
+    if(held!==this.heldKey){
+      if(this.heldMesh){this.camera.remove(this.heldMesh);if(!this.heldMesh.userData.sharedAsset)this.heldMesh.geometry?.dispose();}
+      this.heldKey=held;this.heldMesh=null;
+      if(held){const mesh=BUILDABLES[held]?resourceMesh({itemKey:held},this.floatingTemplates):resourceMesh({type:SCRAP_VARIANTS.includes(held)?'metal':held,variant:SCRAP_VARIANTS.includes(held)?held:undefined},this.floatingTemplates);const bounds=new THREE.Box3().setFromObject(mesh),size=bounds.getSize(new THREE.Vector3());mesh.scale.multiplyScalar(4.5/Math.max(size.x,size.y,size.z));mesh.position.set(3,-2.7,-8);mesh.rotation.set(.25,-.5,.15);this.camera.add(mesh);this.heldMesh=mesh;}
+    }
     this.hand.position.z=game.cooldown>0?Math.sin(game.cooldown*15)*.25:0;
     this.beam.visible=!!game.shot;
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
