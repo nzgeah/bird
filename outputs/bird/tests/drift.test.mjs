@@ -18,7 +18,7 @@ test('walking on a drifting deck never produces sideways collision teleports',()
  const g=createGame();let direction=1;
  for(let i=0;i<1200;i++){
    const before={x:g.player.x-g.ship.x,z:g.player.z-g.ship.z};
-   if(before.x>65)direction=-1;if(before.x<15)direction=1;
+   if(before.x>40)direction=-1;if(before.x<15)direction=1;
    move(g,{x:direction},1/120);
    const dx=g.player.x-g.ship.x-before.x,dz=g.player.z-g.ship.z-before.z;
    assert.ok(Math.abs(dx)<1,`sideways jump at step ${i}: ${dx}`);
@@ -28,12 +28,12 @@ test('walking on a drifting deck never produces sideways collision teleports',()
 });
 
 test('magnetic boots stop at release near the edge and support tile seams',()=>{
- const g=createGame();g.player.x=40;g.player.z=40;
+ const g=createGame();g.player.x=30;g.player.z=30;
  assert.ok(onRaft(g));move(g,{},1);assert.ok(onRaft(g));
- g.player.x=g.ship.x+115;g.player.z=g.ship.z+40;
+ g.player.x=g.ship.x+85;g.player.z=g.ship.z+30;
  g.player.velocity.x=85;
  move(g,{},1);
- assert.ok(onRaft(g));assert.ok(Math.abs(g.player.x-g.ship.x-115)<1e-7);
+ assert.ok(onRaft(g));assert.ok(Math.abs(g.player.x-g.ship.x-85)<1e-7);
  assert.equal(g.player.velocity.x,g.ship.velocity.x);
 });
 

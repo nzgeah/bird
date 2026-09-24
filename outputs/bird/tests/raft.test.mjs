@@ -14,7 +14,7 @@ test('initial raft is 2x2 and has a physical, walkable upper surface',()=>{
 test('swept collision prevents crossing top, underside and side, even at large steps',()=>{
  const g=createGame();Object.assign(g.player,{x:0,y:300,z:0});moveWithCollisions(g,{x:0,y:-600,z:0});assert.equal(g.player.y,standing);
  Object.assign(g.player,{x:0,y:-100,z:0});moveWithCollisions(g,{x:0,y:200,z:0});assert.equal(g.player.y,-12);
- Object.assign(g.player,{x:300,y:10,z:0});moveWithCollisions(g,{x:-400,y:0,z:0});assert.equal(g.player.x,128);
+ Object.assign(g.player,{x:300,y:10,z:0});moveWithCollisions(g,{x:-400,y:0,z:0});assert.equal(g.player.x,98);
 });
 test('leaving edge or rising releases safety; landing restores it',()=>{
  const g=createGame();move(g,{y:1},.1);assert.ok(!onRaft(g));move(g,{y:-1},1.5);assert.ok(onRaft(g));
@@ -27,7 +27,7 @@ test('snake cannot hurt either player or raft while standing on any deck tile',(
  g.player.x=400;Object.assign(g.enemy,{x:400,y:g.player.y,z:g.player.z,bite:0,stun:0});updateEnemy(g,.01);assert.equal(g.player.hp,88);
 });
 test('crafting extends toward selected direction and new tile is solid and safe',()=>{
- const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'hull'));assert.equal(g.ship.tiles.length,4);assert.ok(placeFromInventory(g,'hull',160,0));
+ const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'hull'));assert.equal(g.ship.tiles.length,4);assert.ok(placeFromInventory(g,'hull',120,0));
  const t=g.ship.tiles.at(-1);assert.equal(t.x,2);assert.equal(g.ship.modules,5);assert.equal(g.ship.max,160);
  Object.assign(g.player,{x:t.x*TILE,y:standing+100,z:t.z*TILE});move(g,{y:-1},3);assert.equal(g.player.y,standing);assert.ok(onRaft(g));
 });

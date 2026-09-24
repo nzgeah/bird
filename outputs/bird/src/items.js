@@ -1,9 +1,9 @@
 import {SCRAP_VARIANTS} from './variants.js';
 
 export const BUILDABLES={
-  hull:{name:'Секция палубы',width:80,depth:80,height:16},
-  wall:{name:'Стена',width:80,depth:8,height:80},
-  ceiling:{name:'Потолок',width:80,depth:80,height:88,bottom:80},
+  hull:{name:'Секция палубы',width:60,depth:60,height:16},
+  wall:{name:'Стена',width:60,depth:6,height:60},
+  ceiling:{name:'Потолок',width:60,depth:60,height:66,bottom:60},
   repairDock:{name:'Ремонтный станок',width:32,depth:26,height:22},
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},
   beacon:{name:'Навигационный маяк',width:32,depth:26,height:70},

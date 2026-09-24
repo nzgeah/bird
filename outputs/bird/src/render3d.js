@@ -25,6 +25,7 @@ function buildMesh(type,platform){
     box(group,wall?[80,80,8]:[80,8,80],[0,y,0],'#536b75');
     box(group,wall?[72,72,.3]:[72,.3,72],[0,wall?40:88.2,wall?4.2:0],'#293e47');
     for(const side of [-1,1])box(group,wall?[3,76,9]:[3,9,76],[side*36,y,0],'#c4a873');
+    group.scale.setScalar(TILE/80);
     return group;
   }
   if(type==='hull'){
@@ -146,7 +147,7 @@ export class SpaceView{
       else{
         box(group,[TILE,16,TILE],[0,0,0],'#536b75');
         box(group,[TILE-3,.1,TILE-3],[0,DECK_TOP,0],'#293e47');
-        for(let k=-2;k<=2;k++)box(group,[1,.15,TILE-8],[k*17,DECK_TOP+.05,0],'#708788');
+        for(let k=-2;k<=2;k++)box(group,[1,.15,TILE-8],[k*(TILE-12)/4,DECK_TOP+.05,0],'#708788');
         for(const side of [-1,1])box(group,[3,.2,TILE-4],[side*(TILE/2-3),DECK_TOP+.1,0],'#c4a873');
       }
       makeDismantleVisual(group);this.ship.add(group);this.structureMeshes.set(tile,group);
@@ -195,8 +196,8 @@ export class SpaceView{
     let x=Math.round((hit.x-game.ship.x)/grid)*grid,z=Math.round((hit.z-game.ship.z)/grid)*grid;
     if(type==='wall'){
       const tx=Math.round((hit.x-game.ship.x)/TILE)*TILE,tz=Math.round((hit.z-game.ship.z)/TILE)*TILE;
-      if(Math.abs(Math.round(rotation/(Math.PI/2)))%2){x=tx+(hit.x-game.ship.x>=tx?36:-36);z=tz;}
-      else{x=tx;z=tz+(hit.z-game.ship.z>=tz?36:-36);}
+      if(Math.abs(Math.round(rotation/(Math.PI/2)))%2){x=tx+(hit.x-game.ship.x>=tx?(TILE/2-3):-(TILE/2-3));z=tz;}
+      else{x=tx;z=tz+(hit.z-game.ship.z>=tz?(TILE/2-3):-(TILE/2-3));}
     }
     return {type,x,z,rotation,...validatePlacement(game,type,x,z,rotation)};
   }

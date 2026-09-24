@@ -14,8 +14,8 @@ test('craft stores a building; rejected placement preserves it; valid placement 
 });
 test('solar wings, clearance, rotation and deck edges all affect placement',()=>{
  const g=stocked();g.buildInventory={solar:2,repairDock:2};
- assert.equal(validatePlacement(g,'solar',100,0,0).valid,false);
- assert.equal(validatePlacement(g,'solar',100,0,Math.PI/2).valid,true);
+ assert.equal(validatePlacement(g,'solar',76,0,0).valid,false);
+ assert.equal(validatePlacement(g,'solar',76,0,Math.PI/2).valid,true);
  assert.ok(placeFromInventory(g,'solar',0,-40));
  assert.equal(validatePlacement(g,'repairDock',62,-40).valid,false);
  assert.equal(validatePlacement(g,'repairDock',68,-40).valid,true);
@@ -24,17 +24,17 @@ test('solar wings, clearance, rotation and deck edges all affect placement',()=>
 });
 test('footprint cannot bridge a missing tile, but can straddle adjacent tiles',()=>{
  const g=stocked();g.buildInventory.solar=1;
- assert.equal(validatePlacement(g,'solar',40,-50).valid,true);
+ assert.equal(validatePlacement(g,'solar',30,-40).valid,true);
  g.ship.tiles=g.ship.tiles.filter(t=>t.x!==0||t.z!==0);
- assert.equal(validatePlacement(g,'solar',40,-50).valid,false);
+ assert.equal(validatePlacement(g,'solar',30,-40).valid,false);
 });
 test('hull snaps to a neighbouring tile; cannot overlap, float away, or be placed out of reach',()=>{
  const g=stocked();craft(g,'hull');assert.equal(g.ship.modules,9);
  for(const [x,z] of [[0,0],[190,0],[160,160],[960,0]])assert.equal(placeFromInventory(g,'hull',x,z),false);
- assert.ok(placeFromInventory(g,'hull',160,0));assert.equal(g.ship.modules,10);assert.equal(g.ship.max,160);
+ assert.ok(placeFromInventory(g,'hull',120,0));assert.equal(g.ship.modules,10);assert.equal(g.ship.max,160);
 });
 test('preview bounds match collision boxes for a rotated solar panel',()=>{
- const g=stocked();g.buildInventory.solar=1;placeFromInventory(g,'solar',80,0,Math.PI/2);
+ const g=stocked();g.buildInventory.solar=1;placeFromInventory(g,'solar',60,0,Math.PI/2);
  const b=objectBounds(g.ship.objects[0]),c=raftColliders(g).at(-1);
  assert.deepEqual([c.min.x,c.max.x,c.min.z,c.max.z],[b.minX,b.maxX,b.minZ,b.maxZ]);assert.equal(b.maxZ-b.minZ,96);
 });
@@ -65,7 +65,7 @@ test('holding dismantle for five seconds turns a building into a recoverable fly
  assert.ok(Math.hypot(dropped.vx,dropped.vy,dropped.vz)>0);
 });
 test('releasing dismantle cancels progress and a hull bridge cannot be removed',()=>{
- const g=stocked();g.buildInventory.hull=2;assert.ok(placeFromInventory(g,'hull',160,0));g.player.x=120;assert.ok(placeFromInventory(g,'hull',240,0));
+ const g=stocked();g.buildInventory.hull=2;assert.ok(placeFromInventory(g,'hull',120,0));g.player.x=120;assert.ok(placeFromInventory(g,'hull',180,0));
  const bridge={kind:'tile',entity:g.ship.tiles.find(t=>t.x===2&&t.z===0)};
  assert.equal(canDismantle(g,bridge).valid,false);
  const edge={kind:'tile',entity:g.ship.tiles.find(t=>t.x===3&&t.z===0)};

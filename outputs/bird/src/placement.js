@@ -1,6 +1,6 @@
 import {BUILDABLES} from './items.js';
 
-export const TILE_SIZE=80, PLACEMENT_GAP=4, BUILD_REACH=230;
+export const TILE_SIZE=BUILDABLES.hull.width, PLACEMENT_GAP=4, BUILD_REACH=230;
 export const DISMANTLE_TIME=5;
 export function objectBounds(object){
   const spec=BUILDABLES[object.type];

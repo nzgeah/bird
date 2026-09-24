@@ -12,7 +12,7 @@ export const TYPES=['metal','polymer','circuit','cell'];
 export const NAMES={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейки'};
 export const RECIPES=[
  {id:'wall',name:'Стена',desc:'Вертикальная секция · R — поворот',cost:{metal:3,polymer:2}},
- {id:'ceiling',name:'Потолок',desc:'Над палубой · высота 80 · магнитное крепление',cost:{metal:4,polymer:2}},
+ {id:'ceiling',name:'Потолок',desc:'Над палубой · высота 60 · магнитное крепление',cost:{metal:4,polymer:2}},
  {id:'hook',name:'Магнитный крюк II',desc:'Дальность 520 → 820 м',cost:{metal:3,polymer:2},once:true},
  {id:'pulse',name:'Импульсный резак',desc:'ЛКМ: отгоняет и повреждает дрон',cost:{metal:3,circuit:2},once:true},
  {id:'blaster',name:'Плазменный бластер',desc:'3 → ЛКМ · 800 м · 1 ячейка за выстрел',cost:{metal:4,circuit:3,polymer:2},once:true},
@@ -24,9 +24,9 @@ export const RECIPES=[
 ];
 export function createGame(random=Math.random){
  const g={random,time:0,player:{x:0,y:DECK_TOP+EYE_HEIGHT,z:35,hp:100},ship:{x:0,y:0,z:0,hp:120,max:120,modules:4,tiles:initialTiles(),objects:[]},inventory:{metal:0,polymer:0,circuit:0,cell:0},cargo:{},buildInventory:{},upgrades:{},resources:[],hook:null,pulse:0,cooldown:0,archive:false,won:false,over:false,tool:'hook',dockTimer:0,shot:null,log:'Вы на безопасной палубе. Собирайте обломки и расширяйте плот.',station:{x:260,y:210,z:-760,stock:16,progress:0},enemy:{x:-1000,y:500,z:-600,hp:100,segments:[],stun:0,bite:0},spawn:0};
- for(let i=0;i<80;i++)g.resources.push({...spherePoint(random,90+random()*1100),type:TYPES[i%4],vx:(random()-.5)*36,vy:(random()-.5)*36,vz:(random()-.5)*36});
+ for(let i=0;i<80;i++)g.resources.push({...spherePoint(random,180+random()*2200),type:TYPES[i%4],vx:(random()-.5)*36,vy:(random()-.5)*36,vz:(random()-.5)*36});
  // A small, non-coplanar starter cluster makes the first hook shots discoverable.
- for(let i=0;i<8;i++)g.resources.push({x:(i%4-1.5)*60,y:45+Math.floor(i/4)*75,z:-140-i*24,type:TYPES[i%4],vx:8,vy:2,vz:16});
+ for(let i=0;i<8;i++)g.resources.push({x:(i%4-1.5)*90,y:60+Math.floor(i/4)*100,z:-240-i*32,type:TYPES[i%4],vx:8,vy:2,vz:16});
  g.asteroids=createAsteroids();
  g.resources.filter(r=>r.type==='metal').forEach((r,i)=>{r.variant=SCRAP_VARIANTS[i%SCRAP_VARIANTS.length];});
  // Slow relative drift on top of the shared Earth orbit; no ocean drag.

@@ -1,7 +1,8 @@
+import {BUILDABLES} from './items.js';
 import {objectBounds} from './placement.js';
 import {snakeSpheres} from './snake-hitbox.js';
 // One shared layout drives both visible geometry and collision detection.
-export const TILE=80, DECK_TOP=8, EYE_HEIGHT=24, BODY_RADIUS=8;
+export const TILE=BUILDABLES.hull.width, DECK_TOP=8, EYE_HEIGHT=24, BODY_RADIUS=8;
 export function initialTiles(){return [{x:0,z:0},{x:1,z:0},{x:0,z:1},{x:1,z:1}];}
 export function deckAt(g,x,z){return g.ship.tiles?.some(t=>Math.abs(x-g.ship.x-t.x*TILE)<=TILE/2+1e-7&&Math.abs(z-g.ship.z-t.z*TILE)<=TILE/2+1e-7);}
 export function onRaft(g){
