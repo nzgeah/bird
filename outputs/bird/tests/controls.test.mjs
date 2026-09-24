@@ -12,3 +12,15 @@ test('Space/Ctrl control height, E does not thrust, Shift enables sprint',()=>{
   c.keys.add('KeyW');c.keys.add('ShiftLeft');assert.equal(c.input().sprint,true);assert.ok(c.input().z<0);assert.ok(!c.input().brake);
  }finally{for(const [key,value] of Object.entries(previous)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });
+test('holding the primary mouse button exposes a dismantle hold state',()=>{
+ const previous={document:globalThis.document,addEventListener:globalThis.addEventListener,innerWidth:globalThis.innerWidth,innerHeight:globalThis.innerHeight};
+ const windowHandlers={},canvasHandlers={},canvas={addEventListener(type,handler){canvasHandlers[type]=handler;},focus(){}};
+ let uses=0;
+ Object.assign(globalThis,{document:{pointerLockElement:canvas,body:{classList:{toggle(){}}},addEventListener(){}},addEventListener(type,handler){windowHandlers[type]=handler;},innerWidth:800,innerHeight:600});
+ try{
+  const c=createControls(canvas,{active:()=>true,grounded:()=>true,hook:()=>uses++});
+  canvasHandlers.pointerdown({button:0});assert.equal(c.primary,true);assert.equal(uses,1);
+  windowHandlers.pointerup({button:0});assert.equal(c.primary,false);
+  c.primary=true;c.clear();assert.equal(c.primary,false);
+ }finally{for(const [key,value] of Object.entries(previous)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
+});
