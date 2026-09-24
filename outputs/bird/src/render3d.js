@@ -43,7 +43,7 @@ function makeDismantleVisual(group){
   return group;
 }
 function resourceMesh(resource,templates){
-  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3());group.scale.setScalar(28/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
+  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.setScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
   resourceKey(resource);
   if(resource.type==='metal'&&templates){const mesh=templates[resource.variant].clone(true);mesh.userData.sharedAsset=true;return mesh;}
   return new THREE.Mesh(resource.type==='cell'?new THREE.OctahedronGeometry(12):new THREE.BoxGeometry(18,resource.type==='metal'?7:13,14),material(COLORS[resource.type],true));
@@ -233,7 +233,6 @@ export class SpaceView{
     if(!mesh)return;
     const progress=Math.min(1,active.progress/5),strength=.08+progress*.3,t=game.time*28;
     mesh.position.x+=Math.sin(t)*strength;
-    mesh.scale.multiplyScalar(1-progress*.28);
     mesh.traverse(node=>{if(node.isMesh){node.material.transparent=true;node.material.opacity=Math.min(node.material.opacity,.72);}});
   }
   render(game,look,dt,placement=null){
@@ -276,3 +275,4 @@ export class SpaceView{
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}
 }
+
