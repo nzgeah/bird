@@ -6,7 +6,7 @@ export function objectBounds(object){
   const spec=BUILDABLES[object.type];
   const rotated=Math.abs(Math.round((object.rotation??0)/(Math.PI/2)))%2;
   const width=rotated?spec.depth:spec.width,depth=rotated?spec.width:spec.depth;
-  return {minX:object.x-width/2,maxX:object.x+width/2,minZ:object.z-depth/2,maxZ:object.z+depth/2,height:spec.height};
+  return {minX:object.x-width/2,maxX:object.x+width/2,minZ:object.z-depth/2,maxZ:object.z+depth/2,height:spec.height,bottom:spec.bottom??0};
 }
 export function validatePlacement(g,type,x,z,rotation=0){
   const fail=reason=>({valid:false,reason});
@@ -30,10 +30,13 @@ export function validatePlacement(g,type,x,z,rotation=0){
       if(!g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Объект выходит за край палубы');
   for(const object of g.ship.objects){
     const other=objectBounds(object);
-    if(b.minX<other.maxX+PLACEMENT_GAP&&b.maxX>other.minX-PLACEMENT_GAP&&b.minZ<other.maxZ+PLACEMENT_GAP&&b.maxZ>other.minZ-PLACEMENT_GAP)return fail('Мешает другой объект');
+    // Perpendicular wall panels may join at their solid corner.
+    if(type==='wall'&&object.type==='wall'&&Math.abs(Math.round((rotation-(object.rotation??0))/(Math.PI/2)))%2)continue;
+    const gap=['wall','ceiling'].includes(type)?0:PLACEMENT_GAP;
+    if(b.bottom<other.height&&b.height>other.bottom&&b.minX<other.maxX+gap&&b.maxX>other.minX-gap&&b.minZ<other.maxZ+gap&&b.maxZ>other.minZ-gap)return fail('Мешает другой объект');
   }
   const px=g.player.x-g.ship.x,pz=g.player.z-g.ship.z;
-  if(px+8>b.minX&&px-8<b.maxX&&pz+8>b.minZ&&pz-8<b.maxZ&&g.player.y-24<g.ship.y+8+b.height&&g.player.y+4>g.ship.y+8)return fail('Отойдите от места установки');
+  if(px+8>b.minX&&px-8<b.maxX&&pz+8>b.minZ&&pz-8<b.maxZ&&g.player.y-24<g.ship.y+8+b.height&&g.player.y+4>g.ship.y+8+b.bottom)return fail('Отойдите от места установки');
   return {valid:true,reason:'Можно поставить'};
 }
 export function placeFromInventory(g,type,x,z,rotation=0){
@@ -51,7 +54,7 @@ function sameTarget(a,b){return a&&b&&a.kind===b.kind&&a.entity===b.entity;}
 function targetPosition(g,target){
   if(target.kind==='tile')return {x:g.ship.x+target.entity.x*TILE_SIZE,y:g.ship.y+8,z:g.ship.z+target.entity.z*TILE_SIZE};
   const object=target.entity,spec=BUILDABLES[object.type];
-  return {x:g.ship.x+object.x,y:g.ship.y+8+spec.height/2,z:g.ship.z+object.z};
+  return {x:g.ship.x+object.x,y:g.ship.y+8+((spec.bottom??0)+spec.height)/2,z:g.ship.z+object.z};
 }
 function deckStaysConnected(tiles){
   if(tiles.length<2)return true;

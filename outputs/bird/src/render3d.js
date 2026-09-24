@@ -1,7 +1,7 @@
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
 import {objectBounds,validatePlacement,BUILD_REACH} from './placement.js';
 import * as THREE from '../vendor/three.module.js';
-import {SCRAP_VARIANTS} from './variants.js';
+import {SCRAP_VARIANTS,ASTEROID_VARIANTS,ASTEROID_SIZES} from './variants.js';
 import {flightVector, distance} from './spatial.js';
 import {TILE,DECK_TOP} from './raft.js';
 import {loadGameAssets,sampleTrail} from './assets.js';
@@ -20,6 +20,13 @@ function box(parent,dimensions,position,color,glow=false){
 }
 function buildMesh(type,platform){
   const group=new THREE.Group();
+  if(type==='wall'||type==='ceiling'){
+    const wall=type==='wall',y=wall?40:84;
+    box(group,wall?[80,80,8]:[80,8,80],[0,y,0],'#536b75');
+    box(group,wall?[72,72,.3]:[72,.3,72],[0,wall?40:88.2,wall?4.2:0],'#293e47');
+    for(const side of [-1,1])box(group,wall?[3,76,9]:[3,9,76],[side*36,y,0],'#c4a873');
+    return group;
+  }
   if(type==='hull'){
     if(platform){const mesh=platform.clone(true);mesh.position.y=-DECK_TOP;group.add(mesh);}
     else box(group,[TILE,16,TILE],[0,-8,0],'#536b75');
@@ -162,7 +169,7 @@ export class SpaceView{
         for(const [a,mesh] of this.asteroidMeshes)if(!liveAsteroids.has(a)){this.scene.remove(mesh);this.asteroidMeshes.delete(a);}
         for(const [i,a] of (game.asteroids??[]).entries()){
           let mesh=this.asteroidMeshes.get(a);
-          if(!mesh){mesh=this.floatingTemplates[a.variant].clone(true);this.asteroidMeshes.set(a,mesh);this.scene.add(mesh);}
+          if(!mesh){mesh=this.floatingTemplates[a.variant].clone(true);mesh.scale.multiplyScalar(a.size/ASTEROID_SIZES[ASTEROID_VARIANTS.indexOf(a.variant)]);this.asteroidMeshes.set(a,mesh);this.scene.add(mesh);}
           mesh.position.set(a.x,a.y,a.z);mesh.rotation.set(i*.7+game.time*.015,i*.9+game.time*.022,i*.4);
         }
       }
@@ -184,7 +191,13 @@ export class SpaceView{
     this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
     const hit=this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(game.ship.y+DECK_TOP)),new THREE.Vector3());
     if(!hit)return {type,x:NaN,z:NaN,rotation,valid:false,reason:'Наведите прицел на палубу'};
-    const grid=type==='hull'?TILE:4,x=Math.round((hit.x-game.ship.x)/grid)*grid,z=Math.round((hit.z-game.ship.z)/grid)*grid;
+    const grid=type==='hull'||type==='ceiling'?TILE:4;
+    let x=Math.round((hit.x-game.ship.x)/grid)*grid,z=Math.round((hit.z-game.ship.z)/grid)*grid;
+    if(type==='wall'){
+      const tx=Math.round((hit.x-game.ship.x)/TILE)*TILE,tz=Math.round((hit.z-game.ship.z)/TILE)*TILE;
+      if(Math.abs(Math.round(rotation/(Math.PI/2)))%2){x=tx+(hit.x-game.ship.x>=tx?36:-36);z=tz;}
+      else{x=tx;z=tz+(hit.z-game.ship.z>=tz?36:-36);}
+    }
     return {type,x,z,rotation,...validatePlacement(game,type,x,z,rotation)};
   }
   showPlacement(game,candidate){
@@ -220,7 +233,7 @@ export class SpaceView{
     for(const object of game.ship.objects){
       const b=objectBounds(object),spec=BUILDABLES[object.type];
       consider('object',object,new THREE.Box3(
-        new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP,game.ship.z+b.minZ),
+        new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP+b.bottom,game.ship.z+b.minZ),
         new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+spec.height,game.ship.z+b.maxZ)
       ));
     }
