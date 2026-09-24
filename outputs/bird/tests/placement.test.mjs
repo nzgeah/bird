@@ -72,3 +72,11 @@ test('releasing dismantle cancels progress and a hull bridge cannot be removed',
  updateDismantle(g,edge,true,2);assert.equal(g.dismantle.progress,2);
  updateDismantle(g,edge,false,.1);assert.equal(g.dismantle,null);
 });
+test('starter platform blocks can be dismantled individually',()=>{
+ const g=createGame(()=>.5);g.player.x=160;g.player.z=160;
+ const tile=g.ship.tiles[0],target={kind:'tile',entity:tile},before=g.ship.max;
+ assert.equal(canDismantle(g,target).valid,true);
+ assert.equal(updateDismantle(g,target,true,5).completed,true);
+ assert.equal(g.ship.tiles.includes(tile),false);assert.equal(g.ship.max,before-30);
+ assert.equal(g.resources.at(-1).itemKey,'hull');
+});

@@ -39,6 +39,7 @@ function makeDismantleVisual(group){
     node.material.userData.baseTransparent=node.material.transparent;
   });
   group.userData.basePosition=group.position.clone();
+  group.userData.baseScale=group.scale.clone();
   return group;
 }
 function resourceMesh(resource,templates){
@@ -217,7 +218,6 @@ export class SpaceView{
       ));
     }
     for(const tile of game.ship.tiles){
-      if(!tile.placed)continue;
       const x=game.ship.x+tile.x*TILE,z=game.ship.z+tile.z*TILE;
       consider('tile',tile,new THREE.Box3(new THREE.Vector3(x-TILE/2,game.ship.y-8,z-TILE/2),new THREE.Vector3(x+TILE/2,game.ship.y+DECK_TOP+.5,z+TILE/2)));
     }
@@ -226,12 +226,14 @@ export class SpaceView{
   showDismantle(game){
     for(const mesh of this.structureMeshes.values()){
       mesh.position.copy(mesh.userData.basePosition);
+      mesh.scale.copy(mesh.userData.baseScale);
       mesh.traverse(node=>{if(node.isMesh){node.material.opacity=node.material.userData.baseOpacity;node.material.transparent=node.material.userData.baseTransparent;}});
     }
     const active=game.dismantle,mesh=active&&this.structureMeshes.get(active.target.entity);
     if(!mesh)return;
-    const strength=.15+Math.min(1,active.progress/5)*.65,t=game.time*34;
-    mesh.position.x+=Math.sin(t*1.7)*strength;mesh.position.y+=Math.sin(t*2.3)*strength*.45;mesh.position.z+=Math.cos(t*1.3)*strength;
+    const progress=Math.min(1,active.progress/5),strength=.08+progress*.3,t=game.time*28;
+    mesh.position.x+=Math.sin(t)*strength;
+    mesh.scale.multiplyScalar(1-progress*.28);
     mesh.traverse(node=>{if(node.isMesh){node.material.transparent=true;node.material.opacity=Math.min(node.material.opacity,.72);}});
   }
   render(game,look,dt,placement=null){
@@ -274,4 +276,3 @@ export class SpaceView{
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}
 }
-

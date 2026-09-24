@@ -75,7 +75,7 @@ export function canDismantle(g,target){
     return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
   }
   const tile=target.entity;
-  if(!tile.placed||!g.ship.tiles.includes(tile))return {valid:false,reason:'Стартовую палубу нельзя разобрать'};
+  if(!g.ship.tiles.includes(tile))return {valid:false,reason:'Секция уже разобрана'};
   const px=g.player.x-g.ship.x,pz=g.player.z-g.ship.z;
   if(Math.abs(px-tile.x*TILE_SIZE)<TILE_SIZE/2+8&&Math.abs(pz-tile.z*TILE_SIZE)<TILE_SIZE/2+8)return {valid:false,reason:'Сойдите с этой секции'};
   const minX=tile.x*TILE_SIZE-TILE_SIZE/2,maxX=tile.x*TILE_SIZE+TILE_SIZE/2;
@@ -95,9 +95,10 @@ export function updateDismantle(g,target,held,dt){
   if(g.dismantle.progress<DISMANTLE_TIME)return {active:true,progress:g.dismantle.progress/DISMANTLE_TIME,reason:'Разборка'};
   const position=targetPosition(g,target),type=target.kind==='tile'?'hull':target.entity.type;
   if(target.kind==='tile'){
+    const durability=target.entity.placed?40:30;
     g.ship.tiles.splice(g.ship.tiles.indexOf(target.entity),1);
-    g.ship.modules=Math.max(4,g.ship.modules-1);
-    g.ship.max=Math.max(120,g.ship.max-40);
+    g.ship.modules=Math.max(0,g.ship.modules-1);
+    g.ship.max=Math.max(0,g.ship.max-durability);
     g.ship.hp=Math.min(g.ship.hp,g.ship.max);
   }else{
     g.ship.objects.splice(g.ship.objects.indexOf(target.entity),1);

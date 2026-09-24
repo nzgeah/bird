@@ -32,7 +32,7 @@ const controls=createControls(canvas,{
   key:(code,repeat)=>{if(code==='KeyE'&&!repeat&&!placement)pickupNearby(game);if(code==='KeyG'){if(!repeat&&dropItem(game,hotbarTools[hotbarIndex],flightVector(controls.yaw,controls.pitch,1,0,0))){placement=null;updateUI();selectHotbar(hotbarIndex);}return true;}if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement&&game.tool==='pulse')attack(game);},
   home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+35});resetMotion(game.player);game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
   cycle:step=>selectHotbar(hotbarIndex+step),
-  hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
+  hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(view.structureAim(game))return;if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
   blur:()=>{if(active())pause();},
 });
 addEventListener('resize',()=>view.resize());
@@ -102,7 +102,7 @@ function frame(now){
   let structure=null;
   if(active()&&controls.locked()){
     if(!placement)structure=view.structureAim(game);
-    updateDismantle(game,structure,!placement&&controls.keys.has('KeyX'),dt);
+    updateDismantle(game,structure,!placement&&controls.primary,dt);
     tick(game,{...controls.input(),interact:!placement&&controls.keys.has('KeyE')},dt);
     if(game.over||game.won)showOutcome();
   }else game.dismantle=null;
@@ -113,7 +113,7 @@ function frame(now){
     if(structure){
       const check=canDismantle(game,structure),name=BUILDABLES[structure.kind==='tile'?'hull':structure.entity.type].name;
       const progress=game.dismantle?.target.entity===structure.entity?Math.round(game.dismantle.progress/5*100):0;
-      text('#target',name+' · '+(check.valid?(progress?'РАЗБОРКА '+progress+'%':'удерживайте X · 5 сек'):check.reason));
+      text('#target',name+' · '+(check.valid?(progress?'РАЗБОРКА '+progress+'%':'удерживайте ЛКМ · 5 сек'):check.reason));
     }else text('#target',aim.resource?`${ITEM_NAMES[aim.resource.itemKey]??NAMES[aim.resource.type]} · ${Math.round(distance(game.player,aim.resource))} м · ЛКМ`:'Наведите прицел на обломок · ЛКМ: крюк');
   }else view.targetRing.visible=false;
   $('#crosshair').hidden=!active()||!controls.locked();
