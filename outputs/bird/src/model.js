@@ -15,6 +15,10 @@ export const RECIPES=[
  {id:'blaster',name:'Плазменный бластер',desc:'3 → ЛКМ · 800 м · 1 ячейка за выстрел',cost:{metal:4,circuit:3,polymer:2},once:true},
  {id:'repairDock',name:'Ремонтный станок',desc:'После установки: 1 ячейка → 30 ремонта / 15 с',cost:{metal:3,polymer:2,circuit:1},once:true},
  {id:'hull',name:'Секция палубы',desc:'В инвентарь · установите у края палубы · +40 HP',cost:{metal:4,polymer:2}},
+ {id:'wall',name:'Корпусная стена',desc:'Полная стена · крепится к грани палубы',cost:{metal:2,polymer:1}},
+ {id:'windowWall',name:'Стена с окном',desc:'Защитная панель с обзорным окном',cost:{metal:2,polymer:2}},
+ {id:'doorway',name:'Дверной проём',desc:'Проходимая рама для комнат и коридоров',cost:{metal:2,polymer:1}},
+ {id:'halfWall',name:'Низкое ограждение',desc:'Ограждение края без потери обзора',cost:{metal:1,polymer:1}},
  {id:'solar',name:'Солнечная панель',desc:'После установки: ремонт робота рядом с кораблём',cost:{metal:2,circuit:2,cell:1},once:true},
  {id:'beacon',name:'Навигационный маяк',desc:'Нужен архив · установите маяк для завершения экспедиции',cost:{metal:4,circuit:4,cell:3},once:true},
  {id:'repair',name:'Ремонт корпуса',desc:'Восстановить 45 прочности',cost:{metal:2,polymer:1}}
@@ -70,6 +74,7 @@ export function attack(g){if(!g.upgrades.pulse||g.cooldown>0||g.over||g.won)retu
 export function updateEnemy(g,dt){const e=g.enemy;e.bite=Math.max(0,e.bite-dt);e.stun=Math.max(0,e.stun-dt);if(g.time<25)return;const safe=onRaft(g);let target=safe?{x:g.ship.x+Math.cos(g.time*.12)*500,y:g.ship.y+130,z:g.ship.z+Math.sin(g.time*.12)*500}:g.ship;if(!safe&&distance(e,g.player)<400)target=g.player;else {const nearby=g.resources.find(r=>distance(r,e)<220);if(nearby)target=nearby;}advanceSnake(e,target,dt);if(e.stun)return;for(const r of [...g.resources])if(distance(e,r)<28)g.resources.splice(g.resources.indexOf(r),1);if(safe)return;if(e.bite===0){if(distance(e,g.player)<38){g.player.hp-=12;e.bite=1;}else if(distance(e,g.ship)<55+g.ship.modules*7){g.ship.hp-=10;e.bite=1;g.log='Тревога: уборщик разбирает корпус!';}}}
 export function explore(g,held,dt){if(!held||distance(g.player,g.station)>145){g.station.progress=0;return;}g.station.progress+=dt;if(g.station.progress>=.6){g.station.progress=0;if(g.station.stock>0){addResource(g,{type:TYPES[(16-g.station.stock)%4]},2);g.station.stock--;g.log='Станция: извлечены компоненты';}else if(!g.archive){g.archive=true;g.log='Архив: Земля замолчала. Остался аварийный канал TS-04. Постройте маяк.';}}}
 export function tick(g,input,dt){if(g.over||g.won)return;dt=Math.min(dt,.04);g.time+=dt;move(g,input,dt);updateResources(g,dt);updateEnemy(g,dt);explore(g,input.interact,dt);g.cooldown=Math.max(0,g.cooldown-dt);if(g.shot){g.shot.ttl-=dt;if(g.shot.ttl<=0)g.shot=null;}g.dockTimer=Math.max(0,g.dockTimer-dt);if(g.upgrades.repairDock&&g.ship.hp<g.ship.max&&g.dockTimer===0&&g.inventory.cell>0){spendResource(g,'cell',1);g.ship.hp=Math.min(g.ship.max,g.ship.hp+30);g.dockTimer=15;}g.pulse=Math.max(0,g.pulse-dt);if(g.upgrades.solar&&distance(g.player,g.ship)<180)g.player.hp=Math.min(100,g.player.hp+5*dt);g.spawn+=dt;if(g.spawn>3&&g.resources.length<100){g.spawn=0;const offset=spherePoint(g.random,600),r={type:TYPES[Math.floor(g.random()*4)]};for(const axis of AXES){r[axis]=g.player[axis]+offset[axis];r['v'+axis]=-offset[axis]/600*28;}g.resources.push(r);}if(g.player.hp<=0||g.ship.hp<=0){g.over=true;g.log='Сигнал потерян';}}
+
 
 
 

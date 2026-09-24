@@ -2,6 +2,10 @@ import {SCRAP_VARIANTS} from './variants.js';
 
 export const BUILDABLES={
   hull:{name:'Секция палубы',width:80,depth:80,height:16},
+  wall:{name:'Корпусная стена',width:80,depth:8,height:56,mount:'edge'},
+  windowWall:{name:'Стена с окном',width:80,depth:8,height:56,mount:'edge'},
+  doorway:{name:'Дверной проём',width:80,depth:8,height:56,mount:'edge'},
+  halfWall:{name:'Низкое ограждение',width:80,depth:8,height:28,mount:'edge'},
   repairDock:{name:'Ремонтный станок',width:32,depth:26,height:22},
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},
   beacon:{name:'Навигационный маяк',width:32,depth:26,height:70},
@@ -50,3 +54,4 @@ export function cargoValues(g){
   }
   return {...values,...g.buildInventory};
 }
+

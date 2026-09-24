@@ -19,8 +19,19 @@ export function nextTile(g,direction={x:0,z:-1}){
  })[0];
 }
 export function raftColliders(g){
- const boxes=(g.ship.tiles??[]).map(t=>({min:{x:g.ship.x+t.x*TILE-TILE/2,y:g.ship.y-8,z:g.ship.z+t.z*TILE-TILE/2},max:{x:g.ship.x+t.x*TILE+TILE/2,y:g.ship.y+DECK_TOP,z:g.ship.z+t.z*TILE+TILE/2}}));
- for(const o of g.ship.objects??[]){const b=objectBounds(o);boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});}
+  const boxes=(g.ship.tiles??[]).map(t=>({min:{x:g.ship.x+t.x*TILE-TILE/2,y:g.ship.y-8,z:g.ship.z+t.z*TILE-TILE/2},max:{x:g.ship.x+t.x*TILE+TILE/2,y:g.ship.y+DECK_TOP,z:g.ship.z+t.z*TILE+TILE/2}}));
+ const addPart=(o,cx,cz,width,depth,minY,maxY)=>{
+   const quarter=((Math.round((o.rotation??0)/(Math.PI/2))%4)+4)%4,odd=quarter%2;
+   const x=o.x+(odd?-cz:cx),z=o.z+(odd?cx:cz),w=odd?depth:width,d=odd?width:depth;
+   boxes.push({min:{x:g.ship.x+x-w/2,y:g.ship.y+DECK_TOP+minY,z:g.ship.z+z-d/2},max:{x:g.ship.x+x+w/2,y:g.ship.y+DECK_TOP+maxY,z:g.ship.z+z+d/2}});
+ };
+ for(const o of g.ship.objects??[]){
+   if(o.type==='doorway'){
+     addPart(o,-34,0,12,8,0,56);addPart(o,34,0,12,8,0,56);addPart(o,0,0,80,8,46,56);
+   }else{
+     const b=objectBounds(o);boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});
+   }
+ }
  return boxes;
 }
 function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x&&p.x-BODY_RADIUS<b.max.x&&p.z+BODY_RADIUS>b.min.z&&p.z-BODY_RADIUS<b.max.z&&p.y+4>b.min.y&&p.y-EYE_HEIGHT<b.max.y;}
@@ -43,3 +54,4 @@ export function moveWithCollisions(g,delta){
  if(delta.y<0&&deckAt(g,g.player.x,g.player.z)&&g.player.y>=height&&g.player.y<height+3){g.player.y=height;contacts.add('y');}
  return contacts;
 }
+

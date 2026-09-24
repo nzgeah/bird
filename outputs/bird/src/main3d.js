@@ -52,7 +52,7 @@ $('#place-item').onclick=()=>{if(!canPlay()||!BUILDABLES[selectedItem]||!game.bu
 $('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
 for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>{if(button.dataset.tool==='hook'||game.upgrades[button.dataset.tool]){selectHotbar(hotbarTools.indexOf(button.dataset.tool));updateUI();}};
 $('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.hidden;$('#cargo-tab').setAttribute('aria-pressed',String(!panel.hidden));};
-const categories={tools:['hook','pulse','blaster'],build:['hull','repairDock','solar','beacon'],repair:['repair']};
+const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','doorway','halfWall','repairDock','solar','beacon'],repair:['repair']};
 $('#craft-categories').innerHTML=[['tools','Инструменты'],['build','Строительство'],['repair','Ремонт']].map(([id,label])=>'<button data-category="'+id+'">'+label+'</button>').join('');
 for(const button of document.querySelectorAll('[data-category]'))button.onclick=()=>{for(const recipe of document.querySelectorAll('[data-recipe]'))recipe.hidden=!categories[button.dataset.category].includes(recipe.dataset.recipe);for(const tab of document.querySelectorAll('[data-category]'))tab.classList.toggle('selected',tab===button);};
 $('#recipes').innerHTML=RECIPES.map(recipe=>`<button class="recipe" data-recipe="${recipe.id}"><strong>${recipe.name}<em>＋</em></strong><small>${recipe.desc}</small><small class="cost">${Object.entries(recipe.cost).map(([key,count])=>`${count} ${NAMES[key]}`).join(' · ')}</small></button>`).join('');
@@ -145,3 +145,4 @@ addEventListener('keydown',event=>{
     event.preventDefault();event.stopImmediatePropagation();setInventory(false);
   }
 },true);
+

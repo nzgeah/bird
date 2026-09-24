@@ -80,3 +80,21 @@ test('starter platform blocks can be dismantled individually',()=>{
  assert.equal(g.ship.tiles.includes(tile),false);assert.equal(g.ship.max,before-30);
  assert.equal(g.resources.at(-1).itemKey,'hull');
 });
+test('raft wall set snaps to deck edges and rejects floating or overlapping pieces',()=>{
+ const g=stocked();Object.assign(g.buildInventory,{wall:2,windowWall:1,doorway:1,halfWall:1});
+ assert.equal(validatePlacement(g,'wall',0,-120,0).valid,true);
+ assert.ok(placeFromInventory(g,'wall',0,-120,0));
+ assert.equal(validatePlacement(g,'windowWall',0,-120,0).valid,false);
+ assert.equal(validatePlacement(g,'wall',12,-120,0).valid,false);
+ assert.equal(validatePlacement(g,'wall',0,-200,0).valid,false);
+ assert.ok(placeFromInventory(g,'doorway',120,0,Math.PI/2));
+ assert.ok(placeFromInventory(g,'halfWall',0,120,0));
+});
+test('doorway collision uses two posts and a top beam, leaving the centre passable',()=>{
+ const g=stocked();g.buildInventory.doorway=1;assert.ok(placeFromInventory(g,'doorway',120,0,Math.PI/2));
+ const structureBoxes=raftColliders(g).slice(g.ship.tiles.length);
+ const centre={x:g.ship.x+120,y:g.ship.y+32,z:g.ship.z};
+ assert.equal(structureBoxes.some(b=>centre.x>b.min.x&&centre.x<b.max.x&&centre.y>b.min.y&&centre.y<b.max.y&&centre.z>b.min.z&&centre.z<b.max.z),false);
+ assert.equal(structureBoxes.length,3);
+});
+

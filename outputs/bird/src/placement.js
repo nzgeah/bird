@@ -8,6 +8,18 @@ export function objectBounds(object){
   const width=rotated?spec.depth:spec.width,depth=rotated?spec.width:spec.depth;
   return {minX:object.x-width/2,maxX:object.x+width/2,minZ:object.z-depth/2,maxZ:object.z+depth/2,height:spec.height};
 }
+function normalizedQuarter(rotation){return ((Math.round(rotation/(Math.PI/2))%4)+4)%4;}
+export function edgeSupport(g,x,z,rotation){
+  const quarter=normalizedQuarter(rotation),parallelX=quarter%2===0,epsilon=1e-6;
+  if(parallelX){
+    const tx=Math.round(x/TILE_SIZE),edge=z/TILE_SIZE;
+    if(Math.abs(x/TILE_SIZE-tx)>epsilon||Math.abs(edge-(Math.floor(edge)+.5))>epsilon)return false;
+    return [Math.floor(edge),Math.ceil(edge)].some(tz=>g.ship.tiles.some(t=>t.x===tx&&t.z===tz));
+  }
+  const edge=x/TILE_SIZE,tz=Math.round(z/TILE_SIZE);
+  if(Math.abs(z/TILE_SIZE-tz)>epsilon||Math.abs(edge-(Math.floor(edge)+.5))>epsilon)return false;
+  return [Math.floor(edge),Math.ceil(edge)].some(tx=>g.ship.tiles.some(t=>t.x===tx&&t.z===tz));
+}
 export function validatePlacement(g,type,x,z,rotation=0){
   const fail=reason=>({valid:false,reason});
   if(!BUILDABLES[type]||![x,z,rotation].every(Number.isFinite))return fail('Нет поверхности для установки');
@@ -24,10 +36,14 @@ export function validatePlacement(g,type,x,z,rotation=0){
     return {valid:true,reason:'Можно поставить'};
   }
   const b=objectBounds({type,x,z,rotation});
-  // Check every intersected tile, including holes and concave deck edges.
-  for(let tx=Math.floor((b.minX+TILE_SIZE/2)/TILE_SIZE);tx<=Math.floor((b.maxX+TILE_SIZE/2-1e-6)/TILE_SIZE);tx++)
-    for(let tz=Math.floor((b.minZ+TILE_SIZE/2)/TILE_SIZE);tz<=Math.floor((b.maxZ+TILE_SIZE/2-1e-6)/TILE_SIZE);tz++)
-      if(!g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Объект выходит за край палубы');
+  if(BUILDABLES[type].mount==='edge'){
+    if(!edgeSupport(g,x,z,rotation))return fail('Стена должна крепиться к грани секции');
+  }else{
+    // Check every intersected tile, including holes and concave deck edges.
+    for(let tx=Math.floor((b.minX+TILE_SIZE/2)/TILE_SIZE);tx<=Math.floor((b.maxX+TILE_SIZE/2-1e-6)/TILE_SIZE);tx++)
+      for(let tz=Math.floor((b.minZ+TILE_SIZE/2)/TILE_SIZE);tz<=Math.floor((b.maxZ+TILE_SIZE/2-1e-6)/TILE_SIZE);tz++)
+        if(!g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Объект выходит за край палубы');
+  }
   for(const object of g.ship.objects){
     const other=objectBounds(object);
     if(b.minX<other.maxX+PLACEMENT_GAP&&b.maxX>other.minX-PLACEMENT_GAP&&b.minZ<other.maxZ+PLACEMENT_GAP&&b.maxZ>other.minZ-PLACEMENT_GAP)return fail('Мешает другой объект');
@@ -72,7 +88,7 @@ export function canDismantle(g,target){
   if(Math.hypot(g.player.x-position.x,g.player.y-position.y,g.player.z-position.z)>BUILD_REACH)return {valid:false,reason:'Подойдите ближе'};
   if(target.kind==='object'){
     if(!g.ship.objects.includes(target.entity))return {valid:false,reason:'Постройка уже разобрана'};
-    return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
+    return {valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'};
   }
   const tile=target.entity;
   if(!g.ship.tiles.includes(tile))return {valid:false,reason:'Секция уже разобрана'};
@@ -82,7 +98,7 @@ export function canDismantle(g,target){
   const minZ=tile.z*TILE_SIZE-TILE_SIZE/2,maxZ=tile.z*TILE_SIZE+TILE_SIZE/2;
   if(g.ship.objects.some(object=>{const b=objectBounds(object);return b.minX<maxX&&b.maxX>minX&&b.minZ<maxZ&&b.maxZ>minZ;}))return {valid:false,reason:'Сначала разберите объект на секции'};
   if(!deckStaysConnected(g.ship.tiles.filter(t=>t!==tile)))return {valid:false,reason:'Нельзя разделить палубу'};
-  return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
+  return {valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'};
 }
 export function updateDismantle(g,target,held,dt){
   const check=canDismantle(g,target);
@@ -111,3 +127,4 @@ export function updateDismantle(g,target,held,dt){
   g.log='Разобрано: '+BUILDABLES[type].name+'. Предмет выброшен в космос.';
   return {active:false,completed:true,reason:g.log};
 }
+

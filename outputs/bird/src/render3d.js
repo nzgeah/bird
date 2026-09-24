@@ -25,6 +25,27 @@ function buildMesh(type,platform){
     else box(group,[TILE,16,TILE],[0,-8,0],'#536b75');
     return group;
   }
+  if(['wall','windowWall','doorway','halfWall'].includes(type)){
+    const frame='#71838b',panel='#49616b',accent='#c6ab77';
+    if(type==='wall'){
+      box(group,[80,52,7],[0,26,0],panel);
+      for(const x of [-37,37])box(group,[5,56,9],[x,28,0],frame);
+      box(group,[80,4,9],[0,54,0],accent);
+    }else if(type==='windowWall'){
+      box(group,[80,14,7],[0,7,0],panel);box(group,[80,10,7],[0,51,0],panel);
+      for(const x of [-37,37])box(group,[6,56,9],[x,28,0],frame);
+      const glass=new THREE.Mesh(new THREE.BoxGeometry(68,30,2),new THREE.MeshStandardMaterial({color:'#70b8c9',transparent:true,opacity:.32,metalness:.15,roughness:.2}));
+      glass.position.set(0,31,0);group.add(glass);
+    }else if(type==='doorway'){
+      for(const x of [-34,34])box(group,[12,56,9],[x,28,0],frame);
+      box(group,[80,10,9],[0,51,0],accent);
+    }else{
+      box(group,[80,24,7],[0,12,0],panel);
+      for(const x of [-37,37])box(group,[5,28,9],[x,14,0],frame);
+      box(group,[80,4,9],[0,26,0],accent);
+    }
+    return group;
+  }
   box(group,[32,22,26],[0,11,0],'#61747d');
   box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
   if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');
@@ -177,7 +198,18 @@ export class SpaceView{
     this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
     const hit=this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(game.ship.y+DECK_TOP)),new THREE.Vector3());
     if(!hit)return {type,x:NaN,z:NaN,rotation,valid:false,reason:'Наведите прицел на палубу'};
-    const grid=type==='hull'?TILE:4,x=Math.round((hit.x-game.ship.x)/grid)*grid,z=Math.round((hit.z-game.ship.z)/grid)*grid;
+    const localX=hit.x-game.ship.x,localZ=hit.z-game.ship.z;
+    if(BUILDABLES[type]?.mount==='edge'){
+      const candidates=[];
+      for(const tile of game.ship.tiles){
+        candidates.push({x:tile.x*TILE,z:tile.z*TILE-TILE/2,rotation:0},{x:tile.x*TILE,z:tile.z*TILE+TILE/2,rotation:0},
+          {x:tile.x*TILE-TILE/2,z:tile.z*TILE,rotation:Math.PI/2},{x:tile.x*TILE+TILE/2,z:tile.z*TILE,rotation:Math.PI/2});
+      }
+      const edge=candidates.sort((a,b)=>(a.x-localX)**2+(a.z-localZ)**2-(b.x-localX)**2-(b.z-localZ)**2)[0];
+      if(!edge)return {type,x:NaN,z:NaN,rotation:0,valid:false,reason:'Нужна грань палубы'};
+      return {type,...edge,...validatePlacement(game,type,edge.x,edge.z,edge.rotation)};
+    }
+    const grid=type==='hull'?TILE:4,x=Math.round(localX/grid)*grid,z=Math.round(localZ/grid)*grid;
     return {type,x,z,rotation,...validatePlacement(game,type,x,z,rotation)};
   }
   showPlacement(game,candidate){
