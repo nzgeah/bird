@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,enableDeveloperMode,craft,canCraft,RECIPES,collect,launchHook,updateResources,tick,shoot} from '../src/model.js';
+import {createGame,craft,canCraft,RECIPES,collect,launchHook,updateResources,tick,shoot} from '../src/model.js';
 import {canDismantle,placeFromInventory,validatePlacement,objectBounds,updateDismantle} from '../src/placement.js';
 import {addResource,cargoValues,spendResource} from '../src/items.js';
 import {raftColliders} from '../src/raft.js';
@@ -80,12 +80,3 @@ test('starter platform blocks can be dismantled individually',()=>{
  assert.equal(g.ship.tiles.includes(tile),false);assert.equal(g.ship.max,before-30);
  assert.equal(g.resources.at(-1).itemKey,'hull');
 });
-test('developer mode grants tools, resources and reusable build testing without beacon victory',()=>{
- const g=enableDeveloperMode(createGame());
- assert.equal(g.devMode,true);assert.equal(g.archive,true);
- for(const type of ['metal','polymer','circuit','cell'])assert.equal(g.inventory[type],99);
- for(const type of ['hull','repairDock','solar','beacon'])assert.equal(g.buildInventory[type],20);
- assert.equal(g.upgrades.pulse,true);assert.equal(g.upgrades.blaster,true);
- g.player.z=70;assert.ok(placeFromInventory(g,'beacon',0,0));assert.equal(g.won,false);
-});
-

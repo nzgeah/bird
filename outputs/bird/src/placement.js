@@ -43,7 +43,7 @@ export function placeFromInventory(g,type,x,z,rotation=0){
   if(type==='hull'){g.ship.tiles.push({x:x/TILE_SIZE,z:z/TILE_SIZE,placed:true});g.ship.modules++;g.ship.max+=40;g.ship.hp+=40;}
   else {g.ship.objects.push({type,x,z,rotation});g.upgrades[type]=true;}
   g.log='Установлено: '+BUILDABLES[type].name;
-  if(type==='beacon'&&!g.devMode){g.won=true;g.log='Сигнал принят. BIRD снова в сети.';}
+  if(type==='beacon'){g.won=true;g.log='Сигнал принят. BIRD снова в сети.';}
   return true;
 }
 
@@ -111,4 +111,3 @@ export function updateDismantle(g,target,held,dt){
   g.log='Разобрано: '+BUILDABLES[type].name+'. Предмет выброшен в космос.';
   return {active:false,completed:true,reason:g.log};
 }
-

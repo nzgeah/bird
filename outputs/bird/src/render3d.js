@@ -231,9 +231,11 @@ export class SpaceView{
     }
     const active=game.dismantle,mesh=active&&this.structureMeshes.get(active.target.entity);
     if(!mesh)return;
-    const progress=Math.min(1,active.progress/5),strength=.08+progress*.3,t=game.time*28;
-    mesh.position.x+=Math.sin(t)*strength;
-    mesh.traverse(node=>{if(node.isMesh){node.material.transparent=true;node.material.opacity=Math.min(node.material.opacity,.72);}});
+    const progress=Math.min(1,active.progress/5);
+    const interval=.78-progress*.4,phase=(active.progress%interval)/interval;
+    const kick=phase<.18?1-phase/.18:0,direction=Math.floor(active.progress/interval)%2?-1:1;
+    mesh.position.x+=direction*kick*(.28+progress*.85);
+    mesh.traverse(node=>{if(node.isMesh){node.material.transparent=true;node.material.opacity=Math.min(node.material.opacity,.82);}});
   }
   render(game,look,dt,placement=null){
     this.rebuildShip(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
