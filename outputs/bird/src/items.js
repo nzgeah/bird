@@ -3,6 +3,10 @@ import {SCRAP_VARIANTS} from './variants.js';
 export const BUILDABLES={
   hull:{name:'Секция палубы',width:60,depth:60,height:16},
   wall:{name:'Стена',width:60,depth:6,height:60},
+  windowWall:{name:'Стена с окном',width:60,depth:6,height:60},
+  arch:{name:'Арка',width:60,depth:6,height:60},
+  fence:{name:'Забор',width:60,depth:6,height:28},
+  roof:{name:'Скатная крыша',width:60,depth:60,height:82.5,bottom:60},
   ceiling:{name:'Потолок',width:60,depth:60,height:66,bottom:60},
   repairDock:{name:'Ремонтный станок',width:32,depth:26,height:22},
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},

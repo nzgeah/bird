@@ -7,7 +7,8 @@ export class DamageVision{
     if(hp>this.previous)this.shock=0;
     this.previous=hp;this.shock=Math.max(0,this.shock-dt*1.4);
     this.overlay.hidden=!visible||(damage===0&&this.shock===0);
-    this.world.style.filter=visible&&damage>0?'blur('+(damage*damage*3.4+this.shock*.7).toFixed(2)+'px) saturate('+(1-damage*.65)+') contrast('+(1-damage*.18)+')':'';
+    const baseBlur=.65;
+    this.world.style.filter=visible?'blur('+(baseBlur+damage*damage*3.4+this.shock*.7).toFixed(2)+'px) saturate('+(1-damage*.65)+') contrast('+(1-damage*.18)+')':`blur(${baseBlur}px)`;
     if(this.overlay.hidden)return;
     if(time-this.lastNoise<.085&&time>=this.lastNoise)return;this.lastNoise=time;
     const ctx=this.ctx,w=320,h=180;ctx.clearRect(0,0,w,h);

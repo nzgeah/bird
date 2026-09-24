@@ -1,3 +1,4 @@
+import {partBounds} from './building-parts.js';
 import {BUILDABLES} from './items.js';
 import {objectBounds} from './placement.js';
 import {snakeSpheres} from './snake-hitbox.js';
@@ -9,7 +10,7 @@ export function onRaft(g){
  if(!deckAt(g,g.player.x,g.player.z))return false;
  const feet=g.player.y-EYE_HEIGHT;
  if(Math.abs(feet-(g.ship.y+DECK_TOP))<.6)return true;
- return (g.ship.objects??[]).some(o=>{const b=objectBounds(o),x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6;});
+ return (g.ship.objects??[]).some(o=>{const x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return (partBounds(o)??[objectBounds(o)]).some(b=>x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6);});
 }
 export function nextTile(g,direction={x:0,z:-1}){
  const tiles=g.ship.tiles??[],occupied=new Set(tiles.map(t=>`${t.x},${t.z}`)),candidates=new Map();
@@ -21,7 +22,7 @@ export function nextTile(g,direction={x:0,z:-1}){
 }
 export function raftColliders(g){
  const boxes=(g.ship.tiles??[]).map(t=>({min:{x:g.ship.x+t.x*TILE-TILE/2,y:g.ship.y-8,z:g.ship.z+t.z*TILE-TILE/2},max:{x:g.ship.x+t.x*TILE+TILE/2,y:g.ship.y+DECK_TOP,z:g.ship.z+t.z*TILE+TILE/2}}));
- for(const o of g.ship.objects??[]){const b=objectBounds(o);boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP+b.bottom,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});}
+ for(const o of g.ship.objects??[])for(const b of partBounds(o)??[objectBounds(o)]){boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP+b.bottom,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});}
  return boxes;
 }
 // Translating the deck and player introduces round-off at touching faces.

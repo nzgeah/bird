@@ -1,3 +1,4 @@
+import {WALL_TYPES} from './building-parts.js';
 import {BUILDABLES} from './items.js';
 
 export const TILE_SIZE=BUILDABLES.hull.width, PLACEMENT_GAP=4, BUILD_REACH=230;
@@ -31,8 +32,8 @@ export function validatePlacement(g,type,x,z,rotation=0){
   for(const object of g.ship.objects){
     const other=objectBounds(object);
     // Perpendicular wall panels may join at their solid corner.
-    if(type==='wall'&&object.type==='wall'&&Math.abs(Math.round((rotation-(object.rotation??0))/(Math.PI/2)))%2)continue;
-    const gap=['wall','ceiling'].includes(type)?0:PLACEMENT_GAP;
+    if(WALL_TYPES.includes(type)&&WALL_TYPES.includes(object.type)&&Math.abs(Math.round((rotation-(object.rotation??0))/(Math.PI/2)))%2)continue;
+    const gap=[...WALL_TYPES,'ceiling','roof'].includes(type)?0:PLACEMENT_GAP;
     if(b.bottom<other.height&&b.height>other.bottom&&b.minX<other.maxX+gap&&b.maxX>other.minX-gap&&b.minZ<other.maxZ+gap&&b.maxZ>other.minZ-gap)return fail('Мешает другой объект');
   }
   const px=g.player.x-g.ship.x,pz=g.player.z-g.ship.z;

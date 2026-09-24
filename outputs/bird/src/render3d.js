@@ -1,3 +1,4 @@
+import {buildingParts,partBounds,WALL_TYPES} from './building-parts.js';
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
 import {objectBounds,validatePlacement,BUILD_REACH} from './placement.js';
 import * as THREE from '../vendor/three.module.js';
@@ -20,6 +21,8 @@ function box(parent,dimensions,position,color,glow=false){
 }
 function buildMesh(type,platform){
   const group=new THREE.Group();
+  const parts=buildingParts(type);
+  if(parts){for(const [w,h,d,x,y,z] of parts)box(group,[w,h,d],[x,y,z],type==='fence'?'#a28c65':'#536b75');return group;}
   if(type==='wall'||type==='ceiling'){
     const wall=type==='wall',y=wall?40:84;
     box(group,wall?[80,80,8]:[80,8,80],[0,y,0],'#536b75');
@@ -85,6 +88,8 @@ export class SpaceView{
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
     this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#050a14');
+    // Distant orbital haze; keep the playable region crisp.
+    this.scene.fog=new THREE.Fog('#050a14',1800,21000);
     this.camera=new THREE.PerspectiveCamera(76,1,.15,25000);this.scene.add(this.camera);
     this.hand=new THREE.Group();this.camera.add(this.hand);box(this.hand,[2.4,2.4,6],[3,-3,-7],'#a1babd');box(this.hand,[1.6,1.5,6],[3,-2.5,-11],'#76d9c5',true);
     this.beam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:'#ffb968'}));this.scene.add(this.beam);
@@ -102,7 +107,7 @@ export class SpaceView{
     const stars=new Float32Array(2300*3);
     for(let i=0;i<2300;i++){const u=Math.random()*2-1,a=Math.random()*Math.PI*2,r=9000+Math.random()*6000;stars[i*3]=Math.sqrt(1-u*u)*Math.cos(a)*r;stars[i*3+1]=u*r;stars[i*3+2]=Math.sqrt(1-u*u)*Math.sin(a)*r;}
     const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.BufferAttribute(stars,3));
-    this.scene.add(new THREE.Points(starGeometry,new THREE.PointsMaterial({color:'#b7d2e9',size:8,sizeAttenuation:true})));
+    this.scene.add(new THREE.Points(starGeometry,new THREE.PointsMaterial({color:'#b7d2e9',size:8,sizeAttenuation:true,fog:false})));
     // Nearby orbital dust provides parallax. Points stay in world space;
     // only distant points are recycled, never translated with the ship.
     const dust=new Float32Array(700*3);
@@ -110,7 +115,7 @@ export class SpaceView{
     const dustGeometry=new THREE.BufferGeometry();dustGeometry.setAttribute('position',new THREE.BufferAttribute(dust,3));
     this.orbitDust=new THREE.Points(dustGeometry,new THREE.PointsMaterial({color:'#b2c5cd',size:1.5,sizeAttenuation:true,transparent:true,opacity:.55,depthWrite:false}));
     this.orbitDust.frustumCulled=false;this.scene.add(this.orbitDust);
-    const planet=new THREE.Mesh(new THREE.SphereGeometry(3900,96,64),new THREE.MeshStandardMaterial({color:'#ffffff',metalness:0,roughness:1}));planet.position.set(-1200,-4700,-5400);this.scene.add(planet);
+    const planet=new THREE.Mesh(new THREE.SphereGeometry(3900,96,64),new THREE.MeshStandardMaterial({color:'#ffffff',metalness:0,roughness:1,fog:false}));planet.position.set(-1200,-4700,-5400);this.scene.add(planet);
     this.planet=planet;
     this.earthReady=new THREE.TextureLoader().loadAsync(new URL('../assets/earth-8k.jpg',import.meta.url).href).then(texture=>{
       texture.colorSpace=THREE.SRGBColorSpace;
@@ -118,7 +123,7 @@ export class SpaceView{
       planet.material.map=texture;planet.material.needsUpdate=true;
       return texture;
     });
-    const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(3960,48,32),new THREE.MeshBasicMaterial({color:'#497f9d',transparent:true,opacity:.1,side:THREE.BackSide}));atmosphere.position.copy(planet.position);this.scene.add(atmosphere);
+    const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(3960,48,32),new THREE.MeshBasicMaterial({color:'#497f9d',fog:false,transparent:true,opacity:.1,side:THREE.BackSide}));atmosphere.position.copy(planet.position);this.scene.add(atmosphere);
     this.moduleSignature='';this.resetCamera=true;this.resize();
     this.enemyForward=new THREE.Vector3(0,0,1);this.previousEnemy=null;
     this.assetsReady=Promise.all([loadGameAssets(),this.earthReady]).then(([assets])=>{
@@ -192,9 +197,9 @@ export class SpaceView{
     this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
     const hit=this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(game.ship.y+DECK_TOP)),new THREE.Vector3());
     if(!hit)return {type,x:NaN,z:NaN,rotation,valid:false,reason:'Наведите прицел на палубу'};
-    const grid=type==='hull'||type==='ceiling'?TILE:4;
+    const grid=type==='hull'||type==='ceiling'||type==='roof'?TILE:4;
     let x=Math.round((hit.x-game.ship.x)/grid)*grid,z=Math.round((hit.z-game.ship.z)/grid)*grid;
-    if(type==='wall'){
+    if(WALL_TYPES.includes(type)){
       const tx=Math.round((hit.x-game.ship.x)/TILE)*TILE,tz=Math.round((hit.z-game.ship.z)/TILE)*TILE;
       if(Math.abs(Math.round(rotation/(Math.PI/2)))%2){x=tx+(hit.x-game.ship.x>=tx?(TILE/2-3):-(TILE/2-3));z=tz;}
       else{x=tx;z=tz+(hit.z-game.ship.z>=tz?(TILE/2-3):-(TILE/2-3));}
@@ -231,11 +236,10 @@ export class SpaceView{
       const d=this.camera.position.distanceTo(hit);
       if(d<=BUILD_REACH&&d<depth){depth=d;target={kind,entity};}
     };
-    for(const object of game.ship.objects){
-      const b=objectBounds(object),spec=BUILDABLES[object.type];
+    for(const object of game.ship.objects)for(const b of partBounds(object)??[objectBounds(object)]){
       consider('object',object,new THREE.Box3(
         new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP+b.bottom,game.ship.z+b.minZ),
-        new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+spec.height,game.ship.z+b.maxZ)
+        new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+b.height,game.ship.z+b.maxZ)
       ));
     }
     for(const tile of game.ship.tiles){
