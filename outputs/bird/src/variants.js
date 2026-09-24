@@ -15,5 +15,12 @@ export function createAsteroids(){
     asteroids.push({variant:ASTEROID_VARIANTS[index],x:Math.cos(angle)*radius,
       y:(random()-.5)*radius*.65+350,z:Math.sin(angle)*radius,size});
   }
-  return asteroids;
+  return asteroids.map(a=>{
+    const shape=ASTEROID_VARIANTS.indexOf(a.variant);
+    const speed=12*Math.sqrt(100/a.size),angle=random()*Math.PI*2;
+    const axes=[[.3,1,.2],[.2,.3,1],[0,1,.1],[.5,1,.3],[1,.4,.6],[.7,.5,1]];
+    const axis=axes[shape],length=Math.hypot(...axis);
+    return {...a,vx:Math.cos(angle)*speed,vy:(random()-.5)*speed*.4,vz:Math.sin(angle)*speed,
+      spinAxis:axis.map(v=>v/length),spinRate:(.07+random()*.05)*100/a.size*(random()<.5?-1:1),spinAngle:random()*Math.PI*2};
+  });
 }

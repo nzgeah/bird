@@ -1,6 +1,13 @@
 import {flightVector} from './spatial.js';
 export function createControls(canvas,actions){
   const state={keys:new Set(),yaw:0,pitch:-.22,rotating:false,primary:false,pointer:{x:innerWidth/2,y:innerHeight/2}};
+  state.sensitivity=1;
+  try{const saved=Number(globalThis.localStorage?.getItem('bird.mouseSensitivity'));if(Number.isFinite(saved)&&saved>=.1&&saved<=3)state.sensitivity=saved;}catch{}
+  state.setSensitivity=value=>{
+    const number=Number(value);if(!Number.isFinite(number))return;
+    state.sensitivity=Math.max(.1,Math.min(3,number));
+    try{globalThis.localStorage?.setItem('bird.mouseSensitivity',String(state.sensitivity));}catch{}
+  };
   state.clear=()=>{state.keys.clear();state.rotating=false;state.primary=false;};
   state.reset=()=>{state.clear();state.yaw=0;state.pitch=-.22;};
   state.input=()=>({...flightVector(state.yaw,actions.grounded?.()?0:state.pitch,
@@ -32,7 +39,7 @@ export function createControls(canvas,actions){
   addEventListener('pointerup',event=>{if(event.button===0)state.primary=false;});
   document.addEventListener('mousemove',event=>{
     if(!actions.active()||!state.locked())return;
-    state.yaw+=event.movementX*.0025;state.pitch=Math.max(-1.4,Math.min(1.4,state.pitch-event.movementY*.0025));
+    state.yaw+=event.movementX*.0025*state.sensitivity;state.pitch=Math.max(-1.4,Math.min(1.4,state.pitch-event.movementY*.0025*state.sensitivity));
     state.pointer={x:innerWidth/2,y:innerHeight/2};
   });return state;
 }

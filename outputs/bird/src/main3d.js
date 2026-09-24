@@ -37,6 +37,11 @@ const controls=createControls(canvas,{
   hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(view.structureAim(game))return;if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
   blur:()=>{if(active())pause();},
 });
+const sensitivitySlider=$('#mouse-sensitivity');
+function showSensitivity(){sensitivitySlider.value=controls.sensitivity;$('#sensitivity-value').textContent=controls.sensitivity.toFixed(2)+'×';}
+sensitivitySlider.addEventListener('input',()=>{controls.setSensitivity(sensitivitySlider.value);showSensitivity();});
+$('#reset-sensitivity').onclick=()=>{controls.setSensitivity(1);showSensitivity();};
+showSensitivity();
 addEventListener('resize',()=>view.resize());
 
 const toolIcons={hook:'<path d="M13 5h8v9l-5 5v8a6 6 0 0 1-12 0v-4l4 4"/>',pulse:'<path d="M18 3 8 18h9l-4 15 12-19h-9z"/>',blaster:'<path d="M5 12h22v8H15l-2 10H7l2-10H5zM27 14h5v4h-5M10 8h12"/>'};

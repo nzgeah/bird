@@ -176,7 +176,10 @@ export class SpaceView{
         for(const [i,a] of (game.asteroids??[]).entries()){
           let mesh=this.asteroidMeshes.get(a);
           if(!mesh){mesh=this.floatingTemplates[a.variant].clone(true);mesh.scale.multiplyScalar(a.size/ASTEROID_SIZES[ASTEROID_VARIANTS.indexOf(a.variant)]);this.asteroidMeshes.set(a,mesh);this.scene.add(mesh);}
-          mesh.position.set(a.x,a.y,a.z);mesh.rotation.set(i*.7+game.time*.015,i*.9+game.time*.022,i*.4);
+          mesh.position.set(a.x,a.y,a.z);
+          mesh.userData.spinAxis??=new THREE.Vector3(...(a.spinAxis??[0,1,0]));
+          mesh.userData.baseRotation??=new THREE.Quaternion().setFromEuler(new THREE.Euler(i*.7,i*.9,i*.4));
+          mesh.quaternion.copy(mesh.userData.baseRotation).multiply(new THREE.Quaternion().setFromAxisAngle(mesh.userData.spinAxis,a.spinAngle??0));
         }
       }
     }

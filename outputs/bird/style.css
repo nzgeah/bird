@@ -55,3 +55,6 @@ body>header,.compact-hud,body>footer,.flight-hud,.waypoint{display:none!importan
 .recipe-details{flex:1;min-width:0}.recipe-details strong{display:block}.recipe-details small{display:block;line-height:1.5}
 #craft-panel .recipe:disabled{opacity:.7}#craft-panel .recipe:disabled .cost{color:#9a8d86}
 
+
+#settings-menu{margin:18px 0;padding:14px;border:1px solid #37535d;border-radius:4px;background:#0b1820}#settings-menu summary{cursor:pointer;color:#a4e7d6;font:12px monospace;letter-spacing:1px}#settings-menu label{font-size:12px;gap:16px;margin:18px 0 10px}#mouse-sensitivity{width:100%;accent-color:#a4e7d6;cursor:pointer}#reset-sensitivity{display:block;margin-top:10px;font-size:11px}#sensitivity-value{color:#a4e7d6;white-space:nowrap}
+
