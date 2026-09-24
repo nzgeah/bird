@@ -2,7 +2,7 @@ import {BUILDABLES,ITEM_NAMES,cargoValues,dropItem,toolCount} from './items.js';
 import {canDismantle,placeFromInventory,updateDismantle} from './placement.js';
 import {DamageVision} from './damage-vision.js';
 import {createCargo} from './cargo.js';
-import {createGame,pickupNearby,tick,launchHook,craft,attack,canCraft,RECIPES,NAMES,distance,onRaft,shoot} from './model.js';
+import {createGame,enableDeveloperMode,pickupNearby,tick,launchHook,craft,attack,canCraft,RECIPES,NAMES,distance,onRaft,shoot} from './model.js';
 import {SpaceView,COLORS} from './render3d.js';
 import {createControls} from './controls.js';
 import {flightVector} from './spatial.js';
@@ -72,8 +72,8 @@ function updateUI(){
 
   text('#hullText',Math.max(0,Math.round(game.ship.hp))+' / '+game.ship.max);
   text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
-  text('#mode',!started?'3D / WEBGL':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
-  text('#objective',game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
+  text('#mode',!started?'3D / WEBGL':game.devMode?'РЕЖИМ РАЗРАБОТЧИКА':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
+  text('#objective',game.devMode?'Тестируйте строительство, разборку, инструменты и выбрасывание предметов.':game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
   text('#workshop',(onRaft(game)||distance(game.player,game.ship)<180)?'Палуба '+game.ship.modules+' секц. · крафт доступен':'Вне корабля · F: вернуться к мастерской');
   for(const button of document.querySelectorAll('[data-recipe]')){const recipe=RECIPES.find(recipe=>recipe.id===button.dataset.recipe);button.disabled=!canPlay()||!canCraft(game,recipe);const icon=recipe.once&&(game.upgrades[recipe.id]||game.buildInventory[recipe.id]>0)?'✓':'＋';if(button.querySelector('em').textContent!==icon)button.querySelector('em').textContent=icon;}
   const stationDistance=distance(game.player,game.station);
@@ -85,8 +85,9 @@ function updateUI(){
     marker.textContent=`${point.inFront?'◇':'↶'} ${name} · ${point.distance} м`;marker.hidden=!started||paused||menuOpen;
   }
 }
-function start(){placement=null;setInventory(false,false);if(game.over||game.won){game=createGame();selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
-$('#start').onclick=start;
+function start(developer=false,forceNew=false){placement=null;setInventory(false,false);if(forceNew||!started||game.over||game.won){game=createGame();if(developer)enableDeveloperMode(game);selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
+$('#start').onclick=()=>start(false);
+$('#dev-start').onclick=()=>start(true,true);
 
 function pause(){
   if(!started||game.over||game.won)return;setInventory(false,false);paused=!paused;controls.clear();$('#overlay').hidden=!paused;if(paused)controls.unlock();
@@ -145,3 +146,4 @@ addEventListener('keydown',event=>{
     event.preventDefault();event.stopImmediatePropagation();setInventory(false);
   }
 },true);
+
