@@ -3,7 +3,7 @@ import {snakeSpheres} from './snake-hitbox.js';
 // One shared layout drives both visible geometry and collision detection.
 export const TILE=80, DECK_TOP=8, EYE_HEIGHT=24, BODY_RADIUS=8;
 export function initialTiles(){return [{x:0,z:0},{x:1,z:0},{x:0,z:1},{x:1,z:1}];}
-export function deckAt(g,x,z){return g.ship.tiles?.some(t=>Math.abs(x-g.ship.x-t.x*TILE)<TILE/2&&Math.abs(z-g.ship.z-t.z*TILE)<TILE/2);}
+export function deckAt(g,x,z){return g.ship.tiles?.some(t=>Math.abs(x-g.ship.x-t.x*TILE)<=TILE/2+1e-7&&Math.abs(z-g.ship.z-t.z*TILE)<=TILE/2+1e-7);}
 export function onRaft(g){
  if(!deckAt(g,g.player.x,g.player.z))return false;
  const feet=g.player.y-EYE_HEIGHT;
@@ -23,7 +23,10 @@ export function raftColliders(g){
  for(const o of g.ship.objects??[]){const b=objectBounds(o);boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});}
  return boxes;
 }
-function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x&&p.x-BODY_RADIUS<b.max.x&&p.z+BODY_RADIUS>b.min.z&&p.z-BODY_RADIUS<b.max.z&&p.y+4>b.min.y&&p.y-EYE_HEIGHT<b.max.y;}
+// Translating the deck and player introduces round-off at touching faces.
+// A microscopic floor overlap must not be resolved as a side-wall collision.
+const CONTACT_EPSILON=1e-6;
+function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x+CONTACT_EPSILON&&p.x-BODY_RADIUS<b.max.x-CONTACT_EPSILON&&p.z+BODY_RADIUS>b.min.z+CONTACT_EPSILON&&p.z-BODY_RADIUS<b.max.z-CONTACT_EPSILON&&p.y+4>b.min.y+CONTACT_EPSILON&&p.y-EYE_HEIGHT<b.max.y-CONTACT_EPSILON;}
 export function moveWithCollisions(g,delta){
  const contacts=new Set();
  const steps=Math.max(1,Math.ceil(Math.hypot(delta.x,delta.y,delta.z)/4)),boxes=raftColliders(g);

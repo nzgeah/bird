@@ -6,6 +6,7 @@ import {flightVector, distance} from '../src/spatial.js';
 
 function emptyGame() {
   const game=createGame();
+  game.ship.velocity={x:0,y:0,z:0};game.player.velocity={x:0,y:0,z:0}; // isolate thrust from reference drift
   Object.assign(game.player,{x:0,y:0,z:0});
   game.resources=[];game.ship.tiles=[];
   return game;

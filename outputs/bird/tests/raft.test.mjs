@@ -1,12 +1,14 @@
 import {placeFromInventory} from '../src/placement.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,move,onRaft,craft,updateEnemy,shoot,tick} from '../src/model.js';
+import {createGame as movingGame,move,onRaft,craft,updateEnemy,shoot,tick} from '../src/model.js';
+// Static deck fixture; moving deck integration is covered in drift.test.mjs.
+function createGame(){const g=movingGame();g.ship.velocity={x:0,y:0,z:0};g.player.velocity={x:0,y:0,z:0};return g;}
 import {TILE,DECK_TOP,EYE_HEIGHT,moveWithCollisions} from '../src/raft.js';
 const standing=DECK_TOP+EYE_HEIGHT;
 test('initial raft is 2x2 and has a physical, walkable upper surface',()=>{
  const g=createGame();assert.equal(g.ship.tiles.length,4);assert.ok(onRaft(g));
- move(g,{y:-1},1);assert.equal(g.player.y,standing);
+ move(g,{y:-1},1.5);assert.equal(g.player.y,standing);
  move(g,{x:1},.4);assert.ok(g.player.x>0);assert.equal(g.player.y,standing);assert.ok(onRaft(g));
 });
 test('swept collision prevents crossing top, underside and side, even at large steps',()=>{
@@ -15,7 +17,7 @@ test('swept collision prevents crossing top, underside and side, even at large s
  Object.assign(g.player,{x:300,y:10,z:0});moveWithCollisions(g,{x:-400,y:0,z:0});assert.equal(g.player.x,128);
 });
 test('leaving edge or rising releases safety; landing restores it',()=>{
- const g=createGame();move(g,{y:1},.1);assert.ok(!onRaft(g));move(g,{y:-1},1);assert.ok(onRaft(g));
+ const g=createGame();move(g,{y:1},.1);assert.ok(!onRaft(g));move(g,{y:-1},1.5);assert.ok(onRaft(g));
  move(g,{x:1},3);assert.ok(!onRaft(g));
 });
 test('snake cannot hurt either player or raft while standing on any deck tile',()=>{

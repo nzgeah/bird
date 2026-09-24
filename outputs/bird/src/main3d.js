@@ -16,7 +16,9 @@ try{view=new SpaceView(canvas);}catch(error){$('#intro').textContent='Не уд�
 $('#start').disabled=true;
 $('#start').textContent='ЗАГРУЗКА МОДЕЛЕЙ И ТЕКСТУР…';
 view.assetsReady.then(()=>{
-  cargoOptions.thumbnails=view.itemThumbnails();document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='ВЫЙТИ НА ОРБИТУ ↗';
+  cargoOptions.thumbnails=view.itemThumbnails();
+  for(const image of document.querySelectorAll('[data-craft-preview]'))image.src=cargoOptions.thumbnails[image.dataset.craftPreview];
+  document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='ВЫЙТИ НА ОРБИТУ ↗';
 }).catch(error=>{
   document.body.dataset.assets='error';$('#intro').textContent='Не удалось загрузить модели или текстуру Земли. Обновите страницу. '+error.message;
   $('#start').textContent='МОДЕЛИ НЕ ЗАГРУЖЕНЫ';console.error(error);
@@ -30,7 +32,7 @@ const controls=createControls(canvas,{
   lockError:()=>{game.log='Захват мыши отклонён браузером. Клик по игре — повторить.';},
   active,pause,cancel:()=>{if(!placement)return false;placement=null;game.log='Установка отменена. Предмет остался в инвентаре.';return true;},
   key:(code,repeat)=>{if(code==='KeyE'&&!repeat&&!placement)pickupNearby(game);if(code==='KeyG'){if(!repeat&&dropItem(game,hotbarTools[hotbarIndex],flightVector(controls.yaw,controls.pitch,1,0,0))){placement=null;updateUI();selectHotbar(hotbarIndex);}return true;}if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement&&game.tool==='pulse')attack(game);},
-  home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+35});resetMotion(game.player);game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
+  home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+35});resetMotion(game.player);game.player.velocity={...game.ship.velocity};game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
   cycle:step=>selectHotbar(hotbarIndex+step),
   hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(view.structureAim(game))return;if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
   blur:()=>{if(active())pause();},
@@ -55,7 +57,14 @@ $('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.h
 const categories={tools:['hook','pulse','blaster'],build:['hull','repairDock','solar','beacon'],repair:['repair']};
 $('#craft-categories').innerHTML=[['tools','Инструменты'],['build','Строительство'],['repair','Ремонт']].map(([id,label])=>'<button data-category="'+id+'">'+label+'</button>').join('');
 for(const button of document.querySelectorAll('[data-category]'))button.onclick=()=>{for(const recipe of document.querySelectorAll('[data-recipe]'))recipe.hidden=!categories[button.dataset.category].includes(recipe.dataset.recipe);for(const tab of document.querySelectorAll('[data-category]'))tab.classList.toggle('selected',tab===button);};
-$('#recipes').innerHTML=RECIPES.map(recipe=>`<button class="recipe" data-recipe="${recipe.id}"><strong>${recipe.name}<em>＋</em></strong><small>${recipe.desc}</small><small class="cost">${Object.entries(recipe.cost).map(([key,count])=>`${count} ${NAMES[key]}`).join(' · ')}</small></button>`).join('');
+$('#recipes').innerHTML=RECIPES.map(recipe=>{
+  const preview=toolIcons[recipe.id]
+    ?`<svg viewBox="0 0 36 36" aria-hidden="true">${toolIcons[recipe.id]}</svg>`
+    :recipe.id==='repair'
+      ?'<svg viewBox="0 0 36 36" aria-hidden="true"><path d="M5 10h26v21H5zM12 10V5h12v5M18 15v11M12.5 20.5h11"/></svg>'
+      :`<img data-craft-preview="${recipe.id}" alt="${recipe.name}">`;
+  return `<button class="recipe" data-recipe="${recipe.id}"><span class="recipe-preview">${preview}</span><span class="recipe-details"><strong>${recipe.name}<em>＋</em></strong><small>${recipe.desc}</small><small class="cost">${Object.entries(recipe.cost).map(([key,count])=>`${count} ${NAMES[key]}`).join(' · ')}</small></span></button>`;
+}).join('');
 for(const button of document.querySelectorAll('[data-recipe]'))button.onclick=()=>{if(canPlay())craft(game,button.dataset.recipe,flightVector(controls.yaw,0,1,0,0));if(game.won||game.over)showOutcome();updateUI();};
 document.querySelector('[data-category="tools"]').click();
 function text(selector,value){const element=$(selector);if(element.textContent!==String(value))element.textContent=value;}

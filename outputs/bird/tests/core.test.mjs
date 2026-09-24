@@ -9,6 +9,6 @@ test('movement accelerates and drifts after release',()=>{const g=createGame();g
 test('contact and hook collect each resource exactly once',()=>{const g=createGame();g.resources=[{x:0,y:0,type:'metal',vx:0,vy:0},{x:150,y:0,type:'cell',vx:0,vy:0}];updateResources(g,.016);assert.equal(g.inventory.metal,0);pickupNearby(g);assert.equal(g.inventory.metal,1);launchHook(g,{x:150,y:0});for(let i=0;i<100;i++)updateResources(g,.016);assert.equal(g.inventory.cell,1);assert.equal(g.resources.length,0);assert.equal(g.hook,null);});
 
 // Original economy/AI regression fixtures use the origin; spatial tests cover volume.
-function createGame(){const g=createVolumeGame();Object.assign(g.player,{x:0,y:0,z:0});g.enemy.z=0;g.station.z=0;return g;}
+function createGame(){const g=createVolumeGame();g.ship.velocity={x:0,y:0,z:0};g.player.velocity={x:0,y:0,z:0};Object.assign(g.player,{x:0,y:0,z:0});g.enemy.z=0;g.station.z=0;return g;}
 
 

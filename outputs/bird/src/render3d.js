@@ -95,6 +95,13 @@ export class SpaceView{
     for(let i=0;i<2300;i++){const u=Math.random()*2-1,a=Math.random()*Math.PI*2,r=9000+Math.random()*6000;stars[i*3]=Math.sqrt(1-u*u)*Math.cos(a)*r;stars[i*3+1]=u*r;stars[i*3+2]=Math.sqrt(1-u*u)*Math.sin(a)*r;}
     const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.BufferAttribute(stars,3));
     this.scene.add(new THREE.Points(starGeometry,new THREE.PointsMaterial({color:'#b7d2e9',size:8,sizeAttenuation:true})));
+    // Nearby orbital dust provides parallax. Points stay in world space;
+    // only distant points are recycled, never translated with the ship.
+    const dust=new Float32Array(700*3);
+    for(let i=0;i<dust.length;i++)dust[i]=(Math.random()-.5)*1200;
+    const dustGeometry=new THREE.BufferGeometry();dustGeometry.setAttribute('position',new THREE.BufferAttribute(dust,3));
+    this.orbitDust=new THREE.Points(dustGeometry,new THREE.PointsMaterial({color:'#b2c5cd',size:1.5,sizeAttenuation:true,transparent:true,opacity:.55,depthWrite:false}));
+    this.orbitDust.frustumCulled=false;this.scene.add(this.orbitDust);
     const planet=new THREE.Mesh(new THREE.SphereGeometry(3900,96,64),new THREE.MeshStandardMaterial({color:'#ffffff',metalness:0,roughness:1}));planet.position.set(-1200,-4700,-5400);this.scene.add(planet);
     this.planet=planet;
     this.earthReady=new THREE.TextureLoader().loadAsync(new URL('../assets/earth-8k.jpg',import.meta.url).href).then(texture=>{
@@ -238,6 +245,13 @@ export class SpaceView{
     mesh.traverse(node=>{if(node.isMesh){node.material.transparent=true;node.material.opacity=Math.min(node.material.opacity,.82);}});
   }
   render(game,look,dt,placement=null){
+    const dust=this.orbitDust.geometry.attributes.position;
+    for(let i=0;i<dust.count;i++)for(let axis=0;axis<3;axis++){
+      const k=i*3+axis,center=game.player[['x','y','z'][axis]];
+      const offset=dust.array[k]-center;
+      if(Math.abs(offset)>600)dust.array[k]-=Math.floor((offset+600)/1200)*1200;
+    }
+    dust.needsUpdate=true;
     this.rebuildShip(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
     const forward=flightVector(look.yaw,look.pitch,1,0,0),position=this.robot.position;
     this.camera.position.copy(position);
