@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,craft,canCraft,RECIPES,collect,launchHook,updateResources,tick,shoot} from '../src/model.js';
-import {placeFromInventory,validatePlacement,objectBounds} from '../src/placement.js';
+import {canDismantle,placeFromInventory,validatePlacement,objectBounds,updateDismantle} from '../src/placement.js';
 import {addResource,cargoValues,spendResource} from '../src/items.js';
 import {raftColliders} from '../src/raft.js';
 const stocked=()=>{const g=createGame();g.player.z=70;g.ship.tiles=[];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)g.ship.tiles.push({x,z});g.ship.modules=9;for(const type of ['metal','polymer','circuit','cell'])addResource(g,{type},50);return g;};
@@ -52,4 +52,23 @@ test('contact and hook preserve exact debris variants, then crafting spends thos
 test('ammunition and automatic repairs remove inventory stacks as well as material totals',()=>{
  const g=stocked();g.upgrades.blaster=true;const cells=g.cargo.cell;shoot(g,{x:0,y:30,z:-500});assert.equal(g.cargo.cell,cells-1);
  spendResource(g,'cell',g.inventory.cell);assert.equal(cargoValues(g).cell,undefined);
+});
+test('holding dismantle for five seconds turns a building into a recoverable flying item',()=>{
+ const g=stocked();g.buildInventory.repairDock=1;assert.ok(placeFromInventory(g,'repairDock',0,0));
+ const object=g.ship.objects[0],target={kind:'object',entity:object};
+ assert.equal(updateDismantle(g,target,true,4.99).completed,undefined);
+ assert.equal(g.ship.objects.length,1);assert.ok(g.dismantle.progress>=4.99);
+ const result=updateDismantle(g,target,true,.01);
+ assert.equal(result.completed,true);assert.equal(g.ship.objects.length,0);assert.equal(g.upgrades.repairDock,false);
+ const dropped=g.resources.at(-1);
+ assert.equal(dropped.itemKey,'repairDock');assert.equal(dropped.type,'item');assert.ok(dropped.pickupAfter>g.time);
+ assert.ok(Math.hypot(dropped.vx,dropped.vy,dropped.vz)>0);
+});
+test('releasing dismantle cancels progress and a hull bridge cannot be removed',()=>{
+ const g=stocked();g.buildInventory.hull=2;assert.ok(placeFromInventory(g,'hull',160,0));g.player.x=120;assert.ok(placeFromInventory(g,'hull',240,0));
+ const bridge={kind:'tile',entity:g.ship.tiles.find(t=>t.x===2&&t.z===0)};
+ assert.equal(canDismantle(g,bridge).valid,false);
+ const edge={kind:'tile',entity:g.ship.tiles.find(t=>t.x===3&&t.z===0)};
+ updateDismantle(g,edge,true,2);assert.equal(g.dismantle.progress,2);
+ updateDismantle(g,edge,false,.1);assert.equal(g.dismantle,null);
 });

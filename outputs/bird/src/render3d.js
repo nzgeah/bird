@@ -1,5 +1,5 @@
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
-import {validatePlacement} from './placement.js';
+import {objectBounds,validatePlacement,BUILD_REACH} from './placement.js';
 import * as THREE from '../vendor/three.module.js';
 import {SCRAP_VARIANTS} from './variants.js';
 import {flightVector, distance} from './spatial.js';
@@ -29,6 +29,16 @@ function buildMesh(type,platform){
   box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
   if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');
   if(type==='beacon')box(group,[3,50,3],[0,45,0],'#a9ffe1',true);
+  return group;
+}
+function makeDismantleVisual(group){
+  group.traverse(node=>{
+    if(!node.isMesh)return;
+    node.material=node.material.clone();
+    node.material.userData.baseOpacity=node.material.opacity;
+    node.material.userData.baseTransparent=node.material.transparent;
+  });
+  group.userData.basePosition=group.position.clone();
   return group;
 }
 function resourceMesh(resource,templates){
@@ -75,7 +85,7 @@ export class SpaceView{
     this.robot=new THREE.Group();this.ship=new THREE.Group();this.station=makeStation();this.scene.add(this.robot,this.ship,this.station);
     this.head=new THREE.Group();box(this.head,[30,24,32],[0,0,0],'#946f61');box(this.head,[24,6,3],[0,0,-18],'#ff7159',true);this.scene.add(this.head);
     this.segments=Array.from({length:18},()=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(21,19,21),material('#695b59'));this.scene.add(mesh);return mesh;});
-    this.resourceMeshes=new Map();this.raycaster=new THREE.Raycaster();this.pointer=new THREE.Vector2();
+    this.resourceMeshes=new Map();this.structureMeshes=new Map();this.raycaster=new THREE.Raycaster();this.pointer=new THREE.Vector2();
     this.hook=new THREE.Mesh(new THREE.OctahedronGeometry(6),material('#bdffe8',true));this.scene.add(this.hook);
     this.cable=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:'#b3f8dc'}));this.scene.add(this.cable);
     this.pulse=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),new THREE.MeshBasicMaterial({color:'#a8efdc',transparent:true,opacity:.2,wireframe:true}));this.scene.add(this.pulse);
@@ -113,16 +123,20 @@ export class SpaceView{
   rebuildShip(game){
     const signature=JSON.stringify([game.ship.tiles,game.ship.objects]);
     if(signature===this.moduleSignature)return;
-    this.moduleSignature=signature;this.ship.clear();
+    this.moduleSignature=signature;this.ship.clear();this.structureMeshes.clear();
     for(const tile of game.ship.tiles){
       const x=tile.x*TILE,z=tile.z*TILE;
-      if(this.platformTemplate){const platform=this.platformTemplate.clone(true);platform.position.set(x,0,z);this.ship.add(platform);continue;}
-      box(this.ship,[TILE,16,TILE],[x,0,z],'#536b75');
-      box(this.ship,[TILE-3,.1,TILE-3],[x,DECK_TOP,z],'#293e47');
-      for(let k=-2;k<=2;k++)box(this.ship,[1,.15,TILE-8],[x+k*17,DECK_TOP+.05,z],'#708788');
-      for(const side of [-1,1])box(this.ship,[3,.2,TILE-4],[x+side*(TILE/2-3),DECK_TOP+.1,z],'#c4a873');
+      const group=new THREE.Group();group.position.set(x,0,z);
+      if(this.platformTemplate){group.add(this.platformTemplate.clone(true));}
+      else{
+        box(group,[TILE,16,TILE],[0,0,0],'#536b75');
+        box(group,[TILE-3,.1,TILE-3],[0,DECK_TOP,0],'#293e47');
+        for(let k=-2;k<=2;k++)box(group,[1,.15,TILE-8],[k*17,DECK_TOP+.05,0],'#708788');
+        for(const side of [-1,1])box(group,[3,.2,TILE-4],[side*(TILE/2-3),DECK_TOP+.1,0],'#c4a873');
+      }
+      makeDismantleVisual(group);this.ship.add(group);this.structureMeshes.set(tile,group);
     }
-    for(const o of game.ship.objects){const mesh=buildMesh(o.type,this.platformTemplate);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;this.ship.add(mesh);}
+    for(const o of game.ship.objects){const mesh=buildMesh(o.type,this.platformTemplate);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;makeDismantleVisual(mesh);this.ship.add(mesh);this.structureMeshes.set(o,mesh);}
   }  syncResources(game){
     const visibleResources=game.hook?.resource?[...game.resources,game.hook.resource]:game.resources;
       const live=new Set(visibleResources);
@@ -186,8 +200,42 @@ export class SpaceView{
     if(closest){this.targetRing.position.set(closest.x,closest.y,closest.z);this.targetRing.quaternion.copy(this.camera.quaternion);}
     return {target:closest??this.raycaster.ray.at((game.upgrades.hook?820:520)+190,new THREE.Vector3()),resource:closest};
   }
+  structureAim(game){
+    this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
+    let target=null,depth=Infinity;
+    const consider=(kind,entity,box)=>{
+      const hit=this.raycaster.ray.intersectBox(box,new THREE.Vector3());
+      if(!hit)return;
+      const d=this.camera.position.distanceTo(hit);
+      if(d<=BUILD_REACH&&d<depth){depth=d;target={kind,entity};}
+    };
+    for(const object of game.ship.objects){
+      const b=objectBounds(object),spec=BUILDABLES[object.type];
+      consider('object',object,new THREE.Box3(
+        new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP,game.ship.z+b.minZ),
+        new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+spec.height,game.ship.z+b.maxZ)
+      ));
+    }
+    for(const tile of game.ship.tiles){
+      if(!tile.placed)continue;
+      const x=game.ship.x+tile.x*TILE,z=game.ship.z+tile.z*TILE;
+      consider('tile',tile,new THREE.Box3(new THREE.Vector3(x-TILE/2,game.ship.y-8,z-TILE/2),new THREE.Vector3(x+TILE/2,game.ship.y+DECK_TOP+.5,z+TILE/2)));
+    }
+    return target;
+  }
+  showDismantle(game){
+    for(const mesh of this.structureMeshes.values()){
+      mesh.position.copy(mesh.userData.basePosition);
+      mesh.traverse(node=>{if(node.isMesh){node.material.opacity=node.material.userData.baseOpacity;node.material.transparent=node.material.userData.baseTransparent;}});
+    }
+    const active=game.dismantle,mesh=active&&this.structureMeshes.get(active.target.entity);
+    if(!mesh)return;
+    const strength=.15+Math.min(1,active.progress/5)*.65,t=game.time*34;
+    mesh.position.x+=Math.sin(t*1.7)*strength;mesh.position.y+=Math.sin(t*2.3)*strength*.45;mesh.position.z+=Math.cos(t*1.3)*strength;
+    mesh.traverse(node=>{if(node.isMesh){node.material.transparent=true;node.material.opacity=Math.min(node.material.opacity,.72);}});
+  }
   render(game,look,dt,placement=null){
-    this.rebuildShip(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
+    this.rebuildShip(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
     const forward=flightVector(look.yaw,look.pitch,1,0,0),position=this.robot.position;
     this.camera.position.copy(position);
     this.camera.lookAt(position.clone().add(new THREE.Vector3(forward.x,forward.y,forward.z)));

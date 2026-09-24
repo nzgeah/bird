@@ -1,5 +1,5 @@
 import {BUILDABLES,ITEM_NAMES,cargoValues,dropItem,toolCount} from './items.js';
-import {placeFromInventory} from './placement.js';
+import {canDismantle,placeFromInventory,updateDismantle} from './placement.js';
 import {DamageVision} from './damage-vision.js';
 import {createCargo} from './cargo.js';
 import {createGame,pickupNearby,tick,launchHook,craft,attack,canCraft,RECIPES,NAMES,distance,onRaft,shoot} from './model.js';
@@ -99,10 +99,23 @@ function showOutcome(){setInventory(false,false);controls.unlock();
 }
 function frame(now){
   const dt=Math.min((now-last)/1000,.04);last=now;
-  if(active()&&controls.locked()){tick(game,{...controls.input(),interact:!placement&&controls.keys.has('KeyE')},dt);if(game.over||game.won)showOutcome();}
+  let structure=null;
+  if(active()&&controls.locked()){
+    if(!placement)structure=view.structureAim(game);
+    updateDismantle(game,structure,!placement&&controls.keys.has('KeyX'),dt);
+    tick(game,{...controls.input(),interact:!placement&&controls.keys.has('KeyE')},dt);
+    if(game.over||game.won)showOutcome();
+  }else game.dismantle=null;
   damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
   view.render(game,controls,dt,active()?placement:null);text('#tool-status','1 КРЮК · 2 РЕЗАК · 3 БЛАСТЕР | '+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР · ЯЧЕЕК '+game.inventory.cell}[game.tool]));
-  if(active()&&!placement){const aim=view.aim(innerWidth/2,innerHeight/2,game);text('#target',aim.resource?`${NAMES[aim.resource.type]} · ${Math.round(distance(game.player,aim.resource))} м · ЛКМ`:'Наведите прицел на обломок · ЛКМ: крюк');}else view.targetRing.visible=false;
+  if(active()&&!placement){
+    const aim=view.aim(innerWidth/2,innerHeight/2,game);structure=view.structureAim(game);
+    if(structure){
+      const check=canDismantle(game,structure),name=BUILDABLES[structure.kind==='tile'?'hull':structure.entity.type].name;
+      const progress=game.dismantle?.target.entity===structure.entity?Math.round(game.dismantle.progress/5*100):0;
+      text('#target',name+' · '+(check.valid?(progress?'РАЗБОРКА '+progress+'%':'удерживайте X · 5 сек'):check.reason));
+    }else text('#target',aim.resource?`${ITEM_NAMES[aim.resource.itemKey]??NAMES[aim.resource.type]} · ${Math.round(distance(game.player,aim.resource))} м · ЛКМ`:'Наведите прицел на обломок · ЛКМ: крюк');
+  }else view.targetRing.visible=false;
   $('#crosshair').hidden=!active()||!controls.locked();
 
   const candidate=view.placementCandidate;
