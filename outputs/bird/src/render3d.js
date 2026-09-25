@@ -286,7 +286,7 @@ export class SpaceView{
       if(held){const mesh=BUILDABLES[held]?resourceMesh({itemKey:held},this.floatingTemplates):resourceMesh({type:SCRAP_VARIANTS.includes(held)?'metal':held,variant:SCRAP_VARIANTS.includes(held)?held:undefined},this.floatingTemplates);const bounds=new THREE.Box3().setFromObject(mesh),size=bounds.getSize(new THREE.Vector3());mesh.scale.multiplyScalar(4.5/Math.max(size.x,size.y,size.z));mesh.position.set(3,-2.7,-8);mesh.rotation.set(.25,-.5,.15);this.camera.add(mesh);this.heldMesh=mesh;}
     }
     this.hand.position.z=game.cooldown>0?Math.sin(game.cooldown*15)*.25:0;
-    this.beam.visible=!!game.shot;
+    this.beam.visible=!!game.shot;this.beam.material.color.set(game.shot?.magnetic?'#77eaff':'#ffb968');
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();
