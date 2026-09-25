@@ -7,9 +7,14 @@ export function nearbyEngine(g,reach=ENGINE_REACH){
    return d(a)-d(b);
  }).find(o=>Math.hypot(g.player.x-g.ship.x-o.x,g.player.y-g.ship.y-20,g.player.z-g.ship.z-o.z)<=reach)??null;
 }
-export function toggleEngineControl(g){
+export function canControlEngine(g,target){
+ const engine=target?.kind==='object'&&target.entity?.type==='engine'?target.entity:null;
+ if(!engine||(g.ship.objects??[]).includes(engine)===false)return false;
+ return Math.hypot(g.player.x-g.ship.x-engine.x,g.player.y-g.ship.y-20,g.player.z-g.ship.z-engine.z)<=ENGINE_REACH;
+}
+export function toggleEngineControl(g,target){
  if(g.engineControl){g.engineControl=false;g.log='Управление двигателем отключено';return true;}
- if(!nearbyEngine(g))return false;
+ if(!canControlEngine(g,target))return false;
  g.engineControl=true;g.log='Двигатель: WASD и Space/Ctrl — тяга, Shift — форсаж, E — выйти';return true;
 }
 export function updateEngine(g,input,dt){

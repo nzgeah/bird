@@ -13,9 +13,9 @@ test('engine is crafted, placed and starts with one charged cell',()=>{
  assert.equal(g.engineFuel,ENGINE_FUEL_SECONDS);assert.ok(nearbyEngine(g));
 });
 test('E toggles engine control only while the player is nearby',()=>{
- const g=engineGame();g.ship.objects.push({type:'engine',x:0,z:0,rotation:0});
- assert.ok(toggleEngineControl(g));assert.equal(g.engineControl,true);assert.ok(toggleEngineControl(g));assert.equal(g.engineControl,false);
- g.player.x=500;assert.equal(toggleEngineControl(g),false);
+ const g=engineGame(),engine={type:'engine',x:0,z:0,rotation:0},target={kind:'object',entity:engine};g.ship.objects.push(engine);
+ assert.equal(toggleEngineControl(g),false);assert.ok(toggleEngineControl(g,target));assert.equal(g.engineControl,true);assert.ok(toggleEngineControl(g));assert.equal(g.engineControl,false);
+ g.player.x=500;assert.equal(toggleEngineControl(g,target),false);
 });
 test('engine accelerates the raft and burns fuel only under thrust',()=>{
  const g=engineGame();g.ship.objects.push({type:'engine',x:0,z:0,rotation:0});g.engineControl=true;g.engineFuel=10;
