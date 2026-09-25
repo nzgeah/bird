@@ -22,7 +22,7 @@ $('#start').textContent='ЗАГРУЗКА МОДЕЛЕЙ И ТЕКСТУР…';
 view.assetsReady.then(()=>{
   cargoOptions.thumbnails=view.itemThumbnails();
   for(const image of document.querySelectorAll('[data-craft-preview]'))image.src=cargoOptions.thumbnails[image.dataset.craftPreview];
-  document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='ВЫЙТИ НА ОРБИТУ ↗';
+  document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='НОВАЯ ИГРА';
 }).catch(error=>{
   document.body.dataset.assets='error';$('#intro').textContent='Не удалось загрузить модели или текстуру Земли. Обновите страницу. '+error.message;
   $('#start').textContent='МОДЕЛИ НЕ ЗАГРУЖЕНЫ';console.error(error);
@@ -117,14 +117,20 @@ function updateUI(){
     marker.textContent=`${point.inFront?'◇':'↶'} ${name} · ${point.distance} м`;marker.hidden=!started||paused||menuOpen;
   }
 }
-function start(){placement=null;setInventory(false,false);if(game.over||game.won){const freeCraft=game.freeCraft;game=createGame();game.freeCraft=freeCraft;selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
-$('#start').onclick=start;
+function showMenuScreen(id){for(const screen of document.querySelectorAll('.menu-screen'))screen.hidden=screen.id!==id;}
+function showMainMenu(){paused=false;started=false;controls.clear();controls.unlock();setInventory(false,false);showMenuScreen('main-menu');$('#overlay').hidden=false;}
+function start(){placement=null;setInventory(false,false);if(!started||game.over||game.won){const freeCraft=game.freeCraft;game=createGame();game.freeCraft=freeCraft;selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
+$('#start').onclick=()=>{game.freeCraft=false;showFreeCraft();start();};
+$('#test-game').onclick=()=>{game.freeCraft=true;showFreeCraft();start();};
+for(const button of document.querySelectorAll('[data-menu-panel]'))button.onclick=()=>{const panel=$('#'+button.dataset.menuPanel),opening=panel.hidden;for(const item of document.querySelectorAll('.menu-panel'))item.hidden=true;panel.hidden=!opening;};
+$('#quit-game').onclick=()=>text('#menu-message','В браузере закройте вкладку, чтобы выйти из игры.');
 
 function pause(){
-  if(!started||game.over||game.won)return;setInventory(false,false);paused=!paused;controls.clear();$('#overlay').hidden=!paused;if(paused)controls.unlock();
-  $('.welcome h1').innerHTML='BIRD<span>ОРБИТА НА ПАУЗЕ</span>';text('#intro','Симуляция остановлена. WASD — полёт, Space/Ctrl — вверх/вниз, мышь — обзор, ЛКМ — крюк, E — взаимодействие.');$('.steps').hidden=true;text('#start','ПРОДОЛЖИТЬ');if(!paused){canvas.focus();controls.lock();}
+  if(!started||game.over||game.won)return;setInventory(false,false);paused=!paused;controls.clear();$('#overlay').hidden=!paused;if(paused){controls.unlock();showMenuScreen('pause-menu');}else{canvas.focus();controls.lock();}
 }
 $('#pause').onclick=pause;
+$('#resume-game').onclick=pause;
+$('#back-to-menu').onclick=showMainMenu;
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=game.time<(game.energyShutdownUntil??0);
  document.body.classList.toggle('power-low',energy<=LOW_ENERGY);
@@ -133,9 +139,11 @@ function updatePowerVision(){
  document.body.classList.toggle('power-shutdown',shutdown);
 }
 function showOutcome(){setInventory(false,false);controls.unlock();
-  $('#overlay').hidden=false;$('.welcome h1').innerHTML=game.won?'BIRD<span>СИГНАЛ ПРИНЯТ</span>':'BIRD<span>СВЯЗЬ ПОТЕРЯНА</span>';
-  text('#intro',game.won?`Аварийный канал TS-04 активен. Вы восстановили связь за ${Math.floor(game.time)} секунд. У этого корабля снова есть будущее.`:'Уборщик повредил робота или разрушил корпус. Создайте импульсный резак раньше и ремонтируйте корабль.');$('.steps').hidden=true;text('#start','НОВАЯ ЭКСПЕДИЦИЯ');
+  $('#overlay').hidden=false;showMenuScreen('outcome-menu');text('#outcome-title',game.won?'СИГНАЛ ПРИНЯТ':'СВЯЗЬ ПОТЕРЯНА');
+  text('#outcome-text',game.won?`Аварийный канал TS-04 активен. Вы восстановили связь за ${Math.floor(game.time)} секунд. У этого корабля снова есть будущее.`:'Уборщик повредил робота или разрушил корпус. Создайте импульсный резак раньше и ремонтируйте корабль.');
 }
+$('#outcome-start').onclick=()=>{game.freeCraft=false;start();};
+$('#outcome-menu-button').onclick=showMainMenu;
 function frame(now){
   const dt=Math.min((now-last)/1000,.04);last=now;
   updatePowerVision();
@@ -187,4 +195,3 @@ addEventListener('keydown',event=>{
     event.preventDefault();event.stopImmediatePropagation();setInventory(false);
   }
 },true);
-
