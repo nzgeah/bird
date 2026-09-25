@@ -1,5 +1,6 @@
 import {releaseGrab} from './snake-grab.js';
 import {snakeSpheres} from './snake-hitbox.js';
+import {hitSnakeRaftAttack} from './snake-raft-attack.js';
 
 export const MAGNET_RANGE=520, MAGNET_COOLDOWN=.65;
 function rayHit(start,direction,centre,radius){
@@ -39,6 +40,7 @@ export function fireMagnet(g,target){
    }
    g.log='Магнитный импульс: обломки отброшены';
  }else if(hit?.snake){
+   hitSnakeRaftAttack(g);
    const enemy=g.enemy;
    enemy.magnetHits=g.time-(enemy.magnetLastHit??-Infinity)<=3?(enemy.magnetHits??0)+1:1;
    enemy.magnetLastHit=g.time;

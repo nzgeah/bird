@@ -56,6 +56,9 @@ function makeDismantleVisual(group){
     node.material=node.material.clone();
     node.material.userData.baseOpacity=node.material.opacity;
     node.material.userData.baseTransparent=node.material.transparent;
+    node.material.userData.baseColor=node.material.color.clone();
+    node.material.userData.baseEmissive=node.material.emissive?.clone();
+    node.material.userData.baseEmissiveIntensity=node.material.emissiveIntensity??0;
   });
   group.userData.basePosition=group.position.clone();
   group.userData.baseScale=group.scale.clone();
@@ -263,8 +266,10 @@ export class SpaceView{
     for(const mesh of this.structureMeshes.values()){
       mesh.position.copy(mesh.userData.basePosition);
       mesh.scale.copy(mesh.userData.baseScale);
-      mesh.traverse(node=>{if(node.isMesh){node.material.opacity=node.material.userData.baseOpacity;node.material.transparent=node.material.userData.baseTransparent;}});
+      mesh.traverse(node=>{if(node.isMesh){node.material.opacity=node.material.userData.baseOpacity;node.material.transparent=node.material.userData.baseTransparent;node.material.color.copy(node.material.userData.baseColor);if(node.material.emissive&&node.material.userData.baseEmissive)node.material.emissive.copy(node.material.userData.baseEmissive);node.material.emissiveIntensity=node.material.userData.baseEmissiveIntensity;}});
     }
+    const raftAttack=game.enemy.raftAttack,attacked=raftAttack&&this.structureMeshes.get(raftAttack.tile);
+    if(attacked){attacked.position.x+=raftAttack.edge.x*(raftAttack.jerk??0)*1.8;attacked.position.z+=raftAttack.edge.z*(raftAttack.jerk??0)*1.8;attacked.traverse(node=>{if(node.isMesh){node.material.color.lerp(new THREE.Color('#ff4f35'),.28);if(node.material.emissive){node.material.emissive.set('#8f160d');node.material.emissiveIntensity=.22;}}});}
     const active=game.dismantle,mesh=active&&this.structureMeshes.get(active.target.entity);
     if(!mesh)return;
     const progress=Math.min(1,active.progress/5);
@@ -321,4 +326,3 @@ export class SpaceView{
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}
 }
-
