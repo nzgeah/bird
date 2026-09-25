@@ -16,6 +16,12 @@ test('cargo module stores at most 24 resources and returns them',()=>{
  assert.equal(transferStorage(g,object,'metal',-7),7);
  assert.equal(g.inventory.metal,metal-STORAGE_CAPACITY+7);
 });
+test('cargo module accepts collected variants and crafted objects',()=>{
+ const {g,object}=storageGame();g.cargo['00_hull_fragment']=2;g.inventory.metal+=2;g.buildInventory.hull=1;
+ assert.equal(transferStorage(g,object,'00_hull_fragment',2),2);assert.equal(transferStorage(g,object,'hull',1),1);
+ assert.equal(object.storage['00_hull_fragment'],2);assert.equal(object.storage.hull,1);
+ assert.equal(transferStorage(g,object,'hull',-1),1);assert.equal(g.buildInventory.hull,1);
+});
 test('cargo module opens only when aimed nearby',()=>{
  const {g,object}=storageGame(),target={kind:'object',entity:object};
  assert.equal(usableStorage(g,target),object);g.player.x=500;assert.equal(usableStorage(g,target),null);

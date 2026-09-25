@@ -10,7 +10,7 @@ import {createControls} from './controls.js';
 import {flightVector} from './spatial.js';
 import {resetMotion,GRAVITY} from './physics.js';
 import {DECK_TOP,EYE_HEIGHT} from './raft.js';
-import {STORAGE_CAPACITY,STORAGE_TYPES,storedTotal,transferStorage,usableStorage} from './storage.js';
+import {STORAGE_CAPACITY,storedTotal,transferStorage,usableStorage} from './storage.js';
 import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY} from './energy.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
@@ -61,7 +61,7 @@ function showSelectedItem(key){
   text('#selected-item',key&&count?ITEM_NAMES[key]+' · '+count+' шт.'+(BUILDABLES[key]?' · готово к установке':' · материал для крафта'):'Выберите предмет. Перетащите его, чтобы переместить.');
   $('#place-item').hidden=!BUILDABLES[key]||count<1;
 }
-const cargoOptions={thumbnails:{},onSelect:showSelectedItem,hotbarSlots:hotbarTools,hotbarContainer:$('#hotbar'),canMove:()=>menuOpen,onMove:()=>{game.tool=null;placement=null;}};
+const cargoOptions={thumbnails:{},onSelect:showSelectedItem,hotbarSlots:hotbarTools,hotbarContainer:$('#hotbar'),canMove:()=>menuOpen,onMove:()=>{game.tool=null;placement=null;},onExternalDrop:key=>{if(activeStorage&&transferStorage(game,activeStorage,key,-(activeStorage.storage?.[key]??0)))updateUI();}};
 const cargo=createCargo($('#inventory'),{...ITEM_NAMES,hook:'Крюк',pulse:'Резак',blaster:'Бластер'},COLORS,cargoOptions);
 $('#place-item').onclick=()=>{if(!canPlay()||!BUILDABLES[selectedItem]||!game.buildInventory[selectedItem])return;placement={type:selectedItem,rotation:0};setInventory(false);game.log='Наведите на палубу. R — поворот, ЛКМ — установить, ПКМ / Esc — отмена.';};
 $('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
@@ -80,7 +80,12 @@ $('#recipes').innerHTML=RECIPES.map(recipe=>{
 }).join('');
 for(const button of document.querySelectorAll('[data-recipe]'))button.onclick=()=>{if(canPlay())craft(game,button.dataset.recipe,flightVector(controls.yaw,0,1,0,0));if(game.won||game.over)showOutcome();updateUI();};
 document.querySelector('[data-category="tools"]').click();
-$('#storage-resources').onclick=event=>{const button=event.target.closest('button[data-storage-type]');if(!button||!activeStorage)return;const type=button.dataset.storageType,all=button.dataset.all==='true';let amount=Number(button.dataset.amount);if(all)amount=amount>0?(game.inventory[type]??0):-(activeStorage.storage?.[type]??0);if(transferStorage(game,activeStorage,type,amount))updateUI();};
+const storageGrid=$('#storage-resources');
+storageGrid.addEventListener('dragover',event=>{if(activeStorage&&event.dataTransfer.types.includes('application/x-bird-cargo')){event.preventDefault();event.dataTransfer.dropEffect='move';storageGrid.classList.add('drop-target');}});
+storageGrid.addEventListener('dragleave',event=>{if(!storageGrid.contains(event.relatedTarget))storageGrid.classList.remove('drop-target');});
+storageGrid.addEventListener('drop',event=>{event.preventDefault();storageGrid.classList.remove('drop-target');const key=event.dataTransfer.getData('application/x-bird-cargo');if(activeStorage&&key&&transferStorage(game,activeStorage,key,cargoValues(game)[key]??0))updateUI();});
+storageGrid.addEventListener('dragstart',event=>{const slot=event.target.closest('[data-storage-key]');if(!slot||!activeStorage){event.preventDefault();return;}event.dataTransfer.setData('application/x-bird-storage',slot.dataset.storageKey);event.dataTransfer.setData('text/plain',slot.dataset.storageKey);event.dataTransfer.effectAllowed='move';});
+storageGrid.addEventListener('click',event=>{const slot=event.target.closest('[data-storage-key]');if(slot&&activeStorage&&transferStorage(game,activeStorage,slot.dataset.storageKey,-(activeStorage.storage?.[slot.dataset.storageKey]??0)))updateUI();});
 function text(selector,value){const element=$(selector);if(element.textContent!==String(value))element.textContent=value;}
 function updateUI(){
   $('#hotbar').hidden=!started||paused||game.over||game.won;
@@ -105,7 +110,7 @@ function updateUI(){
   const firstBite=game.enemy.raftAttack?.phase==='bite'&&game.enemy.raftAttack.showHint;
   text('#interaction',firstBite?'ЗМЕЙКА ВЦЕПИЛАСЬ В ПАЛУБУ — ДВАЖДЫ УДАРЬТЕ ЕЁ В ГОЛОВУ!':game.engineControl?`ДВИГАТЕЛЬ · заряд ${Math.ceil(game.engineFuel)} с · скорость ${shipSpeed} м/с · WASD/Space/Ctrl · Shift форсаж · E выйти`:storageAimed?`E · открыть грузовой модуль · ${storedTotal(storageAimed)}/${STORAGE_CAPACITY}`:engineAimed?'E · управлять маневровым двигателем':stationDistance<145?`Удерживайте E · ${game.station.stock?'груз '+game.station.stock+'/16':game.archive?'архив получен':'извлечение архива'} ${Math.round(game.station.progress/.6*100)}%`:onRaft(game)?'Магнитные ботинки · Space: покинуть палубу':'Космос · Shift: спринт · Space/Ctrl: тяга · F: аварийный трос');
   const storagePanel=$('#storage-panel');storagePanel.hidden=!activeStorage;
-  if(activeStorage){text('#storage-capacity',storedTotal(activeStorage)+' / '+STORAGE_CAPACITY);$('#storage-resources').innerHTML=STORAGE_TYPES.map(type=>{const names={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейки'},carried=game.inventory[type]??0,stored=activeStorage.storage?.[type]??0,full=storedTotal(activeStorage)>=STORAGE_CAPACITY;return `<div class="storage-row"><span>${names[type]} · у вас ${carried} · внутри ${stored}</span><span class="storage-actions"><button data-storage-type="${type}" data-amount="1" ${!carried||full?'disabled':''}>＋1</button><button data-storage-type="${type}" data-amount="1" data-all="true" ${!carried||full?'disabled':''}>всё →</button><button data-storage-type="${type}" data-amount="-1" ${!stored?'disabled':''}>−1</button><button data-storage-type="${type}" data-amount="-1" data-all="true" ${!stored?'disabled':''}>всё ←</button></span></div>`;}).join('');}
+  if(activeStorage){text('#storage-capacity',storedTotal(activeStorage)+' / '+STORAGE_CAPACITY);const entries=Object.entries(activeStorage.storage??{}).filter(([,count])=>count>0);storageGrid.innerHTML=Array.from({length:24},(_,index)=>{const entry=entries[index];if(!entry)return '<button class="cargo-slot empty" aria-label="Пустой слот"></button>';const [key,count]=entry,name=ITEM_NAMES[key]??NAMES[key]??key,thumbnail=cargoOptions.thumbnails[key],icon={metal:'▱',polymer:'⬡',circuit:'▦',cell:'▰'}[key]??'▱';return `<button class="cargo-slot" draggable="true" data-storage-key="${key}" aria-label="${name}: ${count}" title="Перетащите в личный инвентарь или нажмите"><div class="slot-content">${thumbnail?`<img class="cargo-thumbnail" src="${thumbnail}" alt="">`:`<span class="cargo-icon" style="color:${COLORS[key]??'#9ce7d1'}">${icon}</span>`}<span class="cargo-name">${name}</span><b>${count}</b></div></button>`;}).join('');}
   for(const [id,target,name] of [['station-marker',game.station,'ВЕКТОР'],['ship-marker',game.ship,'BIRD']]){
     const marker=$('#'+id),point=view.waypoint(target,game),left=80,right=80;
     marker.style.left=Math.max(left,Math.min(innerWidth-right,point.x))+'px';marker.style.top=Math.max(100,Math.min(innerHeight-180,point.y))+'px';
@@ -164,7 +169,8 @@ requestAnimationFrame(frame);
 
 function setInventory(open,resume=true,storage=null){
   activeStorage=open?storage:null;
-  menuOpen=open;controls.clear();if(open){$('#craft-panel').hidden=false;$('#cargo-tab').setAttribute('aria-pressed','true');}
+  document.body.classList.toggle('storage-open',!!activeStorage);
+  menuOpen=open;controls.clear();if(open){$('#craft-panel').hidden=!!storage;$('#cargo-tab').setAttribute('aria-pressed',String(!storage));}
   $('#inventory-menu').hidden=!open;
   document.body.classList.toggle('inventory-open',open);
   if(open){controls.unlock();updateUI();$('#close-inventory').focus();}
