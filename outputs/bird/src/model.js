@@ -63,10 +63,10 @@ export function updateResources(g,dt){
  else {const travel=600*dt,previous={...h};for(const axis of AXES)h[axis]+=h['d'+axis]*travel;h.travel+=travel;const r=g.resources.filter(r=>segmentDistance(r,previous,h)<28).sort((a,b)=>distance(a,previous)-distance(b,previous))[0];if(r){h.cargo=r.type;h.resource=r;g.resources.splice(g.resources.indexOf(r),1);h.returning=true;}if(h.travel>=(g.upgrades.hook?820:520))h.returning=true;}
  if(h.resource)for(const axis of AXES)h.resource[axis]=h[axis];
 }
-export function canCraft(g,r){return !g.over&&!g.won&&(onRaft(g)||distance(g.player,g.ship)<180)&&!(r.once&&(g.upgrades[r.id]||g.buildInventory?.[r.id]>0))&&!(r.id==='beacon'&&!g.archive)&&!(r.id==='repair'&&g.ship.hp===g.ship.max)&&Object.entries(r.cost).every(([k,n])=>g.inventory[k]>=n);}
+export function canCraft(g,r){if(!r||g.over||g.won)return false;if(g.freeCraft)return !(r.once&&(g.upgrades[r.id]||g.buildInventory?.[r.id]>0));return (onRaft(g)||distance(g.player,g.ship)<180)&&!(r.once&&(g.upgrades[r.id]||g.buildInventory?.[r.id]>0))&&!(r.id==='beacon'&&!g.archive)&&!(r.id==='repair'&&g.ship.hp===g.ship.max)&&Object.entries(r.cost).every(([k,n])=>g.inventory[k]>=n);}
 export function craft(g,id){
  const r=RECIPES.find(r=>r.id===id);if(!r||!canCraft(g,r))return false;
- for(const [key,count] of Object.entries(r.cost))spendResource(g,key,count);
+ if(!g.freeCraft)for(const [key,count] of Object.entries(r.cost))spendResource(g,key,count);
  if(BUILDABLES[id]){g.buildInventory[id]=(g.buildInventory[id]??0)+1;g.log='Создано: '+r.name+'. Выберите предмет в инвентаре и нажмите «Установить».';}
  else {g.upgrades[id]=true;if(id==='repair')g.ship.hp=Math.min(g.ship.max,g.ship.hp+45);g.log='Создано: '+r.name;}
  return true;
@@ -83,7 +83,6 @@ export function attack(g){if(!g.upgrades.pulse||g.cooldown>0||g.over||g.won)retu
 export function updateEnemy(g,dt){const e=g.enemy;e.bite=Math.max(0,e.bite-dt);e.stun=Math.max(0,e.stun-dt);if(updateGrab(g,dt))return;if(g.time<25)return;const safe=onRaft(g);let target=safe?{x:g.ship.x+Math.cos(g.time*.12)*500,y:g.ship.y+130,z:g.ship.z+Math.sin(g.time*.12)*500}:g.ship;if(!safe&&distance(e,g.player)<400)target=g.player;else {const nearby=g.resources.find(r=>distance(r,e)<220);if(nearby)target=nearby;}if(g.time<(e.magnetRepelUntil??0))target=g.player;advanceSnake(e,target,dt);if(e.stun)return;for(const r of [...g.resources])if(distance(e,r)<28)g.resources.splice(g.resources.indexOf(r),1);if(safe)return;if(e.bite===0){if(distance(e,g.player)<38){g.player.hp-=12;e.bite=1;startGrab(g);}else if(distance(e,g.ship)<55+g.ship.modules*7){g.ship.hp-=10;e.bite=1;g.log='Тревога: уборщик разбирает корпус!';}}}
 export function explore(g,held,dt){if(!held||distance(g.player,g.station)>145){g.station.progress=0;return;}g.station.progress+=dt;if(g.station.progress>=.6){g.station.progress=0;if(g.station.stock>0){addResource(g,{type:TYPES[(16-g.station.stock)%4]},2);g.station.stock--;g.log='Станция: извлечены компоненты';}else if(!g.archive){g.archive=true;g.log='Архив: Земля замолчала. Остался аварийный канал TS-04. Постройте маяк.';}}}
 export function tick(g,input,dt){if(g.over||g.won)return;dt=Math.min(dt,.04);g.time+=dt;updateEngine(g,input.pilot,dt);move(g,input.pilot?{}:input,dt);updateAsteroids(g,dt);updateResources(g,dt);updateEnemy(g,dt);explore(g,input.interact,dt);g.cooldown=Math.max(0,g.cooldown-dt);if(g.shot){g.shot.ttl-=dt;if(g.shot.ttl<=0)g.shot=null;}g.dockTimer=Math.max(0,g.dockTimer-dt);if(g.upgrades.repairDock&&g.ship.hp<g.ship.max&&g.dockTimer===0&&g.inventory.cell>0){spendResource(g,'cell',1);g.ship.hp=Math.min(g.ship.max,g.ship.hp+30);g.dockTimer=15;}g.pulse=Math.max(0,g.pulse-dt);if(g.upgrades.solar&&distance(g.player,g.ship)<180)g.player.hp=Math.min(100,g.player.hp+5*dt);updateResourceStream(g,dt);if(g.player.hp<=0||g.ship.hp<=0){g.over=true;g.log='Сигнал потерян';}}
-
 
 
 

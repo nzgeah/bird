@@ -43,7 +43,11 @@ const sensitivitySlider=$('#mouse-sensitivity');
 function showSensitivity(){sensitivitySlider.value=controls.sensitivity;$('#sensitivity-value').textContent=controls.sensitivity.toFixed(2)+'×';}
 sensitivitySlider.addEventListener('input',()=>{controls.setSensitivity(sensitivitySlider.value);showSensitivity();});
 $('#reset-sensitivity').onclick=()=>{controls.setSensitivity(1);showSensitivity();};
+const freeCraftButton=$('#free-craft');
+function showFreeCraft(){freeCraftButton.textContent='ТЕСТОВЫЙ КРАФТ: '+(game.freeCraft?'ВКЛ':'ВЫКЛ');freeCraftButton.setAttribute('aria-pressed',String(!!game.freeCraft));}
+freeCraftButton.onclick=()=>{game.freeCraft=!game.freeCraft;game.log=game.freeCraft?'Тестовый крафт включён: ресурсы и сюжетные требования отключены':'Тестовый крафт выключен';showFreeCraft();updateUI();};
 showSensitivity();
+showFreeCraft();
 addEventListener('resize',()=>view.resize());
 
 const toolIcons={hook:'<path d="M13 5h8v9l-5 5v8a6 6 0 0 1-12 0v-4l4 4"/>',pulse:'<path d="M18 3 8 18h9l-4 15 12-19h-9z"/>',blaster:'<path d="M5 12h22v8H15l-2 10H7l2-10H5zM27 14h5v4h-5M10 8h12"/>'};
@@ -102,7 +106,7 @@ function updateUI(){
     marker.textContent=`${point.inFront?'◇':'↶'} ${name} · ${point.distance} м`;marker.hidden=!started||paused||menuOpen;
   }
 }
-function start(){placement=null;setInventory(false,false);if(game.over||game.won){game=createGame();selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
+function start(){placement=null;setInventory(false,false);if(game.over||game.won){const freeCraft=game.freeCraft;game=createGame();game.freeCraft=freeCraft;selectHotbar(0);controls.reset();view.resetCamera=true;}started=true;paused=false;controls.clear();$('#overlay').hidden=true;canvas.focus();controls.lock();}
 $('#start').onclick=start;
 
 function pause(){
