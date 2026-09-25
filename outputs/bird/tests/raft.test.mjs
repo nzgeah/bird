@@ -20,8 +20,8 @@ test('leaving edge or rising releases safety; landing restores it',()=>{
  const g=createGame();move(g,{y:1},.1);assert.ok(!onRaft(g));move(g,{y:-1},1.5);assert.ok(onRaft(g));
  move(g,{x:1},3);assert.ok(!onRaft(g));
 });
-test('snake cannot hurt either player or raft while standing on any deck tile',()=>{
- const g=createGame();g.time=30;g.resources=[];Object.assign(g.enemy,{x:g.player.x,y:g.player.y,z:g.player.z});
+test('ordinary pursuit cannot hurt player or raft while standing on a deck tile',()=>{
+ const g=createGame();g.time=30;g.resources=[];g.enemy.nextRaftAttack=Infinity;Object.assign(g.enemy,{x:g.player.x,y:g.player.y,z:g.player.z});
  for(let i=0;i<120;i++)updateEnemy(g,1/60);
  assert.equal(g.player.hp,100);assert.equal(g.ship.hp,120);
  g.player.x=400;Object.assign(g.enemy,{x:400,y:g.player.y,z:g.player.z,bite:0,stun:0});updateEnemy(g,.01);assert.equal(g.player.hp,88);
