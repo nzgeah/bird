@@ -11,6 +11,7 @@ import {flightVector} from './spatial.js';
 import {resetMotion,GRAVITY} from './physics.js';
 import {DECK_TOP,EYE_HEIGHT} from './raft.js';
 import {STORAGE_CAPACITY,STORAGE_TYPES,storedTotal,transferStorage,usableStorage} from './storage.js';
+import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY} from './energy.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
 let placement=null,selectedItem=null,activeStorage=null;
@@ -93,7 +94,7 @@ function updateUI(){
   for(const button of document.querySelectorAll('[data-tool]')){button.disabled=button.dataset.tool!=='hook'&&!game.upgrades[button.dataset.tool];button.classList.toggle('selected',button.dataset.tool===game.tool);}
 
   text('#hullText',Math.max(0,Math.round(game.ship.hp))+' / '+game.ship.max);
-  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
+  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const energy=Math.ceil(game.energy),charging=onRaft(game)&&energy<100;text('#power-status',charging?`DOCK POWER · CHARGING ${energy}%`:energy<=LOW_ENERGY?`UNIT–07 · PWR ${energy}%`:'UNIT–07 · PWR STABLE');const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
   text('#mode',!started?'3D / WEBGL':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
   text('#objective',game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
   text('#workshop',(onRaft(game)||distance(game.player,game.ship)<180)?'Палуба '+game.ship.modules+' секц. · крафт доступен':'Вне корабля · F: вернуться к мастерской');
@@ -119,12 +120,20 @@ function pause(){
   $('.welcome h1').innerHTML='BIRD<span>ОРБИТА НА ПАУЗЕ</span>';text('#intro','Симуляция остановлена. WASD — полёт, Space/Ctrl — вверх/вниз, мышь — обзор, ЛКМ — крюк, E — взаимодействие.');$('.steps').hidden=true;text('#start','ПРОДОЛЖИТЬ');if(!paused){canvas.focus();controls.lock();}
 }
 $('#pause').onclick=pause;
+function updatePowerVision(){
+ const energy=game.energy??100,shutdown=game.time<(game.energyShutdownUntil??0);
+ document.body.classList.toggle('power-low',energy<=LOW_ENERGY);
+ document.body.classList.toggle('power-critical',energy<=CRITICAL_ENERGY);
+ document.body.classList.toggle('power-emergency',energy<=EMERGENCY_ENERGY);
+ document.body.classList.toggle('power-shutdown',shutdown);
+}
 function showOutcome(){setInventory(false,false);controls.unlock();
   $('#overlay').hidden=false;$('.welcome h1').innerHTML=game.won?'BIRD<span>СИГНАЛ ПРИНЯТ</span>':'BIRD<span>СВЯЗЬ ПОТЕРЯНА</span>';
   text('#intro',game.won?`Аварийный канал TS-04 активен. Вы восстановили связь за ${Math.floor(game.time)} секунд. У этого корабля снова есть будущее.`:'Уборщик повредил робота или разрушил корпус. Создайте импульсный резак раньше и ремонтируйте корабль.');$('.steps').hidden=true;text('#start','НОВАЯ ЭКСПЕДИЦИЯ');
 }
 function frame(now){
   const dt=Math.min((now-last)/1000,.04);last=now;
+  updatePowerVision();
   let structure=null;
   if(active()&&controls.locked()){
     if(!placement)structure=view.structureAim(game);

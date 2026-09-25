@@ -26,6 +26,7 @@ canvas{cursor:default}.mouse-locked canvas{cursor:none}.inventory-open,.inventor
 #storage-panel{margin:0 18px 14px;padding:14px;border:1px solid #47616b;border-radius:6px;background:#0b151b}.storage-title,.storage-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.storage-title{margin-bottom:10px;color:#bce8e1}.storage-row{padding:7px 0;border-top:1px solid #263942;font:11px monospace}.storage-row .storage-actions{display:flex;gap:5px}.storage-row button{padding:5px 7px;font-size:10px}.storage-row button:disabled{opacity:.35}#storage-panel small{display:block;margin-top:9px;color:#718b96}
 
 #damage-vision{position:fixed;inset:0;width:100%;height:100%;z-index:4;pointer-events:none;image-rendering:auto}#space{will-change:filter}
+#power-vision{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;background:radial-gradient(circle at center,transparent 42%,rgba(4,24,35,.62) 100%),repeating-linear-gradient(0deg,transparent 0 5px,rgba(101,218,230,.025) 6px);transition:opacity .7s}.power-low #power-vision{opacity:.36}.power-critical #power-vision{opacity:.68;animation:power-dip 5.4s steps(1) infinite}.power-emergency #power-vision{opacity:.9;animation:power-dip 2.2s steps(1) infinite}.power-low #power-status{color:#e2bf68;text-shadow:0 0 8px #d6a83666}.power-critical #power-status{color:#ee934f}.power-emergency #power-status{color:#b9edff;animation:power-text 1s steps(2) infinite}.power-critical .flight-hud{animation:hud-drop 6s steps(1) infinite}.power-emergency .flight-hud,.power-emergency #crosshair{animation:hud-drop 2.6s steps(1) infinite}.power-shutdown #power-vision{opacity:1;background:#010407;transition:none}.power-shutdown .flight-hud,.power-shutdown #crosshair,.power-shutdown header,.power-shutdown footer{opacity:0}@keyframes power-dip{0%,87%,92%,100%{filter:none}88%,91%{filter:brightness(.35)}}@keyframes hud-drop{0%,82%,86%,100%{opacity:1}83%,85%{opacity:.08}}@keyframes power-text{50%{opacity:.42}}
 
 /* The in-game HUD contains only the item bar and aiming reticle. */
 body>header,.compact-hud,body>footer,.flight-hud,.waypoint{display:none!important}
@@ -58,5 +59,4 @@ body>header,.compact-hud,body>footer,.flight-hud,.waypoint{display:none!importan
 
 
 #settings-menu{margin:18px 0;padding:14px;border:1px solid #37535d;border-radius:4px;background:#0b1820}#settings-menu summary{cursor:pointer;color:#a4e7d6;font:12px monospace;letter-spacing:1px}#settings-menu label{font-size:12px;gap:16px;margin:18px 0 10px}#mouse-sensitivity{width:100%;accent-color:#a4e7d6;cursor:pointer}#reset-sensitivity{display:block;margin-top:10px;font-size:11px}#sensitivity-value{color:#a4e7d6;white-space:nowrap}
-
 

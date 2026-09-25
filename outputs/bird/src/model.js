@@ -10,6 +10,7 @@ import {advancePlayer,orbitalAcceleration,resetMotion} from './physics.js';
 import {advanceSnake} from './snake-motion.js';
 import {createAsteroids,SCRAP_VARIANTS} from './variants.js';
 import {initialTiles,onRaft,DECK_TOP,EYE_HEIGHT} from './raft.js';
+import {consumeEnergy,updateEnergy,MAX_ENERGY,EMERGENCY_ENERGY} from './energy.js';
 export {onRaft} from './raft.js';
 export { distance } from './spatial.js';
 export const TYPES=['metal','polymer','circuit','cell'];
@@ -33,7 +34,7 @@ export const RECIPES=[
  {id:'repair',name:'Ремонт корпуса',desc:'Восстановить 45 прочности',cost:{metal:2,polymer:1}}
 ];
 export function createGame(random=Math.random){
- const g={random,time:0,player:{x:0,y:DECK_TOP+EYE_HEIGHT,z:35,hp:100},ship:{x:0,y:0,z:0,hp:120,max:120,modules:4,tiles:initialTiles(),objects:[]},inventory:{metal:0,polymer:0,circuit:0,cell:0},cargo:{},buildInventory:{},upgrades:{},resources:[],hook:null,pulse:0,cooldown:0,archive:false,won:false,over:false,tool:'hook',dockTimer:0,shot:null,engineControl:false,engineFuel:0,engineThrust:0,log:'Вы на безопасной палубе. Собирайте обломки и расширяйте плот.',station:{x:260,y:210,z:-760,stock:16,progress:0},enemy:{x:-1000,y:500,z:-600,hp:100,segments:[],stun:0,bite:0},spawn:0};
+ const g={random,time:0,player:{x:0,y:DECK_TOP+EYE_HEIGHT,z:35,hp:100},ship:{x:0,y:0,z:0,hp:120,max:120,modules:4,tiles:initialTiles(),objects:[]},inventory:{metal:0,polymer:0,circuit:0,cell:0},cargo:{},buildInventory:{},upgrades:{},resources:[],hook:null,pulse:0,cooldown:0,archive:false,won:false,over:false,tool:'hook',dockTimer:0,shot:null,engineControl:false,engineFuel:0,engineThrust:0,energy:MAX_ENERGY,energyWarning:0,log:'Вы на безопасной палубе. Собирайте обломки и расширяйте плот.',station:{x:260,y:210,z:-760,stock:16,progress:0},enemy:{x:-1000,y:500,z:-600,hp:100,segments:[],stun:0,bite:0},spawn:0};
  for(let i=0;i<80;i++)g.resources.push({...spherePoint(random,180+random()*2200),type:TYPES[i%4],vx:(random()-.5)*36,vy:(random()-.5)*36,vz:(random()-.5)*36});
  // A small, non-coplanar starter cluster makes the first hook shots discoverable.
  for(let i=0;i<8;i++)g.resources.push({x:(i%4-1.5)*90,y:60+Math.floor(i/4)*100,z:-240-i*32,type:TYPES[i%4],vx:8,vy:2,vz:16});
@@ -53,7 +54,7 @@ export function pickupNearby(g){
  if(!r)return false;collect(g,r);return true;
 }
 export function launchHook(g,target){
- if(g.hook||g.over||g.won)return;
+ if(g.hook||g.over||g.won||!consumeEnergy(g,1))return;
  const length=distance(target,g.player)||1;
  g.hook={travel:0,returning:false,cargo:null};
  for(const axis of AXES){g.hook[axis]=g.player[axis]??0;g.hook['d'+axis]=((target[axis]??0)-(g.player[axis]??0))/length;}
@@ -81,10 +82,8 @@ export function shoot(g,target){
  g.shot={start:{...g.player},end,ttl:.16};
  if(g.enemy.grab||hitsSnake(g.enemy,g.player,end)){hitSnakeRaftAttack(g);g.enemy.hp-=50;g.enemy.stun=3;g.log='Плазма: попадание по уборщику';if(g.enemy.hp<=0){g.enemy.hp=100;g.enemy.x=g.player.x-1400;g.enemy.z=g.player.z-700;g.enemy.stun=12;g.enemy.segments=[];addResource(g,{type:'metal'},3);g.log='Уборщик отключён. Получено 3 металла.';}}return true;
 }
-export function attack(g){if(!g.upgrades.pulse||g.cooldown>0||g.over||g.won)return false;g.cooldown=1.2;g.pulse=.4;if(distance(g.player,g.enemy)<210){hitSnakeRaftAttack(g);g.enemy.hp-=34;g.enemy.stun=2;g.log='Импульс: уборщик отступает';if(g.enemy.hp<=0){for(let i=0;i<8;i++)g.resources.push({x:g.enemy.x+i*12,y:g.enemy.y,z:g.enemy.z,type:TYPES[i%4],vx:0,vy:0,vz:0});g.enemy.hp=100;g.enemy.x=g.player.x-1400;g.enemy.y=g.player.y+700;g.enemy.z=g.player.z-700;g.enemy.segments=[];g.enemy.stun=12;g.log='Уборщик отключён. Заберите его компоненты.';}}return true;}
+export function attack(g){if(!g.upgrades.pulse||g.cooldown>0||g.over||g.won||!consumeEnergy(g,2))return false;g.cooldown=1.2;g.pulse=.4;if(distance(g.player,g.enemy)<210){hitSnakeRaftAttack(g);g.enemy.hp-=34;g.enemy.stun=2;g.log='Импульс: уборщик отступает';if(g.enemy.hp<=0){for(let i=0;i<8;i++)g.resources.push({x:g.enemy.x+i*12,y:g.enemy.y,z:g.enemy.z,type:TYPES[i%4],vx:0,vy:0,vz:0});g.enemy.hp=100;g.enemy.x=g.player.x-1400;g.enemy.y=g.player.y+700;g.enemy.z=g.player.z-700;g.enemy.segments=[];g.enemy.stun=12;g.log='Уборщик отключён. Заберите его компоненты.';}}return true;}
 export function updateEnemy(g,dt){const e=g.enemy;e.bite=Math.max(0,e.bite-dt);e.stun=Math.max(0,e.stun-dt);if(updateGrab(g,dt))return;if(g.time<25)return;if(updateSnakeRaftAttack(g,dt))return;const safe=onRaft(g);let target=safe?{x:g.ship.x+Math.cos(g.time*.12)*500,y:g.ship.y+130,z:g.ship.z+Math.sin(g.time*.12)*500}:g.ship;if(!safe&&distance(e,g.player)<400)target=g.player;else {const nearby=g.resources.find(r=>distance(r,e)<220);if(nearby)target=nearby;}if(g.time<(e.magnetRepelUntil??0))target=g.player;advanceSnake(e,target,dt);if(e.stun)return;for(const r of [...g.resources])if(distance(e,r)<28)g.resources.splice(g.resources.indexOf(r),1);if(safe)return;if(e.bite===0){if(distance(e,g.player)<38){g.player.hp-=12;e.bite=1;startGrab(g);}else if(distance(e,g.ship)<55+g.ship.modules*7){g.ship.hp-=10;e.bite=1;g.log='Тревога: уборщик разбирает корпус!';}}}
 export function explore(g,held,dt){if(!held||distance(g.player,g.station)>145){g.station.progress=0;return;}g.station.progress+=dt;if(g.station.progress>=.6){g.station.progress=0;if(g.station.stock>0){addResource(g,{type:TYPES[(16-g.station.stock)%4]},2);g.station.stock--;g.log='Станция: извлечены компоненты';}else if(!g.archive){g.archive=true;g.log='Архив: Земля замолчала. Остался аварийный канал TS-04. Постройте маяк.';}}}
-export function tick(g,input,dt){if(g.over||g.won)return;dt=Math.min(dt,.04);g.time+=dt;updateEngine(g,input.pilot,dt);move(g,input.pilot?{}:input,dt);updateAsteroids(g,dt);updateResources(g,dt);updateEnemy(g,dt);explore(g,input.interact,dt);g.cooldown=Math.max(0,g.cooldown-dt);if(g.shot){g.shot.ttl-=dt;if(g.shot.ttl<=0)g.shot=null;}g.dockTimer=Math.max(0,g.dockTimer-dt);if(g.upgrades.repairDock&&g.ship.hp<g.ship.max&&g.dockTimer===0&&g.inventory.cell>0){spendResource(g,'cell',1);g.ship.hp=Math.min(g.ship.max,g.ship.hp+30);g.dockTimer=15;}g.pulse=Math.max(0,g.pulse-dt);if(g.upgrades.solar&&distance(g.player,g.ship)<180)g.player.hp=Math.min(100,g.player.hp+5*dt);updateResourceStream(g,dt);if(g.player.hp<=0||g.ship.hp<=0){g.over=true;g.log='Сигнал потерян';}}
-
-
+export function tick(g,input,dt){if(g.over||g.won)return;dt=Math.min(dt,.04);g.time+=dt;updateEnergy(g,input.pilot?{}:input,dt);const playerInput=g.energy<=EMERGENCY_ENERGY?{...input,sprint:false}:input;updateEngine(g,input.pilot,dt);move(g,input.pilot?{}:playerInput,dt);updateAsteroids(g,dt);updateResources(g,dt);updateEnemy(g,dt);explore(g,input.interact,dt);g.cooldown=Math.max(0,g.cooldown-dt);if(g.shot){g.shot.ttl-=dt;if(g.shot.ttl<=0)g.shot=null;}g.dockTimer=Math.max(0,g.dockTimer-dt);if(g.upgrades.repairDock&&g.ship.hp<g.ship.max&&g.dockTimer===0&&g.inventory.cell>0){spendResource(g,'cell',1);g.ship.hp=Math.min(g.ship.max,g.ship.hp+30);g.dockTimer=15;}g.pulse=Math.max(0,g.pulse-dt);if(g.upgrades.solar&&distance(g.player,g.ship)<180)g.player.hp=Math.min(100,g.player.hp+5*dt);updateResourceStream(g,dt);if(g.player.hp<=0||g.ship.hp<=0){g.over=true;g.log='Сигнал потерян';}}
 

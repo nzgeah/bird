@@ -1,6 +1,7 @@
 import {releaseGrab} from './snake-grab.js';
 import {snakeSpheres} from './snake-hitbox.js';
 import {hitSnakeRaftAttack} from './snake-raft-attack.js';
+import {consumeEnergy} from './energy.js';
 
 export const MAGNET_RANGE=520, MAGNET_COOLDOWN=.65;
 function rayHit(start,direction,centre,radius){
@@ -14,6 +15,7 @@ function rayHit(start,direction,centre,radius){
 }
 export function fireMagnet(g,target){
  if(g.over||g.won||g.tool!=='hook'||g.droppedTools?.hook||g.time<(g.magnetReadyAt??0))return false;
+ if(!consumeEnergy(g,2))return false;
  const start={x:g.player.x,y:g.player.y,z:g.player.z};
  const length=Math.hypot(target.x-start.x,target.y-start.y,target.z-start.z);
  if(!Number.isFinite(length)||length<.001)return false;
@@ -51,3 +53,4 @@ export function fireMagnet(g,target){
  }
  return true;
 }
+
