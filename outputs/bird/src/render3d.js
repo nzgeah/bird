@@ -36,6 +36,14 @@ function buildMesh(type,platform){
     else box(group,[TILE,16,TILE],[0,-8,0],'#536b75');
     return group;
   }
+  if(type==='engine'){
+    box(group,[42,22,34],[0,11,0],'#596a73');
+    box(group,[26,15,14],[0,10,22],'#303b44');
+    const exhaust=box(group,[20,10,3],[0,10,30],'#60dfff',true);exhaust.userData.engineExhaust=true;
+    box(group,[26,2,17],[0,23,-3],'#72d8c9',true);
+    for(const side of [-1,1])box(group,[5,8,36],[side*18,4,0],'#b39262');
+    return group;
+  }
   box(group,[32,22,26],[0,11,0],'#61747d');
   box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
   if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');
@@ -288,6 +296,7 @@ export class SpaceView{
     this.hand.position.z=game.cooldown>0?Math.sin(game.cooldown*15)*.25:0;
     this.beam.visible=!!game.shot;this.beam.material.color.set(game.shot?.magnetic?'#77eaff':'#ffb968');
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
+    for(const [object,mesh] of this.structureMeshes)if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();
     if(!this.previousEnemy||movement.length()>200){this.enemyForward.copy(this.ship.position).sub(this.head.position).normalize();}

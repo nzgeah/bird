@@ -8,6 +8,7 @@ export const BUILDABLES={
   fence:{name:'Забор',width:60,depth:6,height:28},
   roof:{name:'Скатная крыша',width:60,depth:60,height:82.5,bottom:60},
   ceiling:{name:'Потолок',width:60,depth:60,height:66,bottom:60},
+  engine:{name:'Маневровый двигатель',width:42,depth:38,height:26},
   repairDock:{name:'Ремонтный станок',width:32,depth:26,height:22},
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},
   beacon:{name:'Навигационный маяк',width:32,depth:26,height:70},

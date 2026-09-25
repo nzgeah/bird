@@ -45,7 +45,7 @@ export function placeFromInventory(g,type,x,z,rotation=0){
   if(!result.valid){g.log=result.reason;return false;}
   g.buildInventory[type]--;
   if(type==='hull'){g.ship.tiles.push({x:x/TILE_SIZE,z:z/TILE_SIZE,placed:true});g.ship.modules++;g.ship.max+=40;g.ship.hp+=40;}
-  else {g.ship.objects.push({type,x,z,rotation});g.upgrades[type]=true;}
+  else {g.ship.objects.push({type,x,z,rotation});g.upgrades[type]=true;if(type==='engine')g.engineFuel=Math.max(g.engineFuel??0,45);}
   g.log='Установлено: '+BUILDABLES[type].name;
   if(type==='beacon'){g.won=true;g.log='Сигнал принят. BIRD снова в сети.';}
   return true;
