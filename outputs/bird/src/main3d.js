@@ -1,3 +1,4 @@
+import {fireMagnet} from './magnet.js';
 import {BUILDABLES,ITEM_NAMES,cargoValues,dropItem,toolCount} from './items.js';
 import {canDismantle,placeFromInventory,updateDismantle} from './placement.js';
 import {DamageVision} from './damage-vision.js';
@@ -31,10 +32,10 @@ function selectHotbar(index){placement=null;hotbarIndex=(index+10)%10;const tool
 const controls=createControls(canvas,{
   lockError:()=>{game.log='Захват мыши отклонён браузером. Клик по игре — повторить.';},
   active,pause,cancel:()=>{if(!placement)return false;placement=null;game.log='Установка отменена. Предмет остался в инвентаре.';return true;},
-  key:(code,repeat)=>{if(code==='KeyE'&&!repeat&&!placement)pickupNearby(game);if(code==='KeyG'){if(!repeat&&dropItem(game,hotbarTools[hotbarIndex],flightVector(controls.yaw,controls.pitch,1,0,0))){placement=null;updateUI();selectHotbar(hotbarIndex);}return true;}if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement&&game.tool==='pulse')attack(game);},
+  key:(code,repeat)=>{if(code==='KeyE'&&!repeat&&!placement&&controls.locked()){if(distance(game.player,game.station)>=145&&game.tool==='hook')launchHook(game,view.aim(innerWidth/2,innerHeight/2,game).target);else pickupNearby(game);}if(code==='KeyG'){if(!repeat&&dropItem(game,hotbarTools[hotbarIndex],flightVector(controls.yaw,controls.pitch,1,0,0))){placement=null;updateUI();selectHotbar(hotbarIndex);}return true;}if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement&&game.tool==='pulse')attack(game);},
   home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+35});resetMotion(game.player);game.player.velocity={...game.ship.velocity};game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
   cycle:step=>selectHotbar(hotbarIndex+step),
-  hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(view.structureAim(game))return;if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else launchHook(game,point);},
+  hook:(x,y)=>{if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(view.structureAim(game))return;if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else fireMagnet(game,point);},
   blur:()=>{if(active())pause();},
 });
 const sensitivitySlider=$('#mouse-sensitivity');
