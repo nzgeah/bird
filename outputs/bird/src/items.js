@@ -9,6 +9,7 @@ export const BUILDABLES={
   roof:{name:'Скатная крыша',width:60,depth:60,height:82.5,bottom:60},
   ceiling:{name:'Потолок',width:60,depth:60,height:66,bottom:60},
   engine:{name:'Маневровый двигатель',width:42,depth:38,height:26},
+  cargoPod:{name:'Грузовой модуль',width:38,depth:32,height:28},
   repairDock:{name:'Ремонтный станок',width:32,depth:26,height:22},
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},
   beacon:{name:'Навигационный маяк',width:32,depth:26,height:70},
@@ -57,3 +58,4 @@ export function cargoValues(g){
   }
   return {...values,...g.buildInventory};
 }
+

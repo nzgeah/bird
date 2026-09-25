@@ -2,6 +2,7 @@ import {onRaft,TILE} from './raft.js';
 import {objectBounds} from './placement.js';
 import {distance} from './spatial.js';
 import {advanceSnake} from './snake-motion.js';
+import {ejectStoredResources} from './storage.js';
 
 export const FIRST_RAFT_ATTACK=30, RAFT_BITE_TIME=5, HITS_TO_RELEASE=2;
 const EDGES=[[1,0],[-1,0],[0,1],[0,-1]];
@@ -30,7 +31,7 @@ function release(g){g.enemy.raftAttack=null;g.enemy.stun=Math.max(g.enemy.stun??
 function detachTarget(g,attack){
  const tile=attack.tile;
  const minX=tile.x*TILE-TILE/2,maxX=tile.x*TILE+TILE/2,minZ=tile.z*TILE-TILE/2,maxZ=tile.z*TILE+TILE/2;
- for(const object of [...g.ship.objects]){const b=objectBounds(object);if(b.minX<maxX&&b.maxX>minX&&b.minZ<maxZ&&b.maxZ>minZ){g.ship.objects.splice(g.ship.objects.indexOf(object),1);g.resources.push({type:'item',itemKey:object.type,x:g.ship.x+object.x,y:g.ship.y+18,z:g.ship.z+object.z,vx:attack.edge.x*45,vy:18,vz:attack.edge.z*45,pickupAfter:g.time+1.2});}}
+ for(const object of [...g.ship.objects]){const b=objectBounds(object);if(b.minX<maxX&&b.maxX>minX&&b.minZ<maxZ&&b.maxZ>minZ){const position={x:g.ship.x+object.x,y:g.ship.y+18,z:g.ship.z+object.z};ejectStoredResources(g,object,position,attack.edge);g.ship.objects.splice(g.ship.objects.indexOf(object),1);g.resources.push({type:'item',itemKey:object.type,...position,vx:attack.edge.x*45,vy:18,vz:attack.edge.z*45,pickupAfter:g.time+1.2});}}
  g.ship.tiles.splice(g.ship.tiles.indexOf(tile),1);g.ship.modules=Math.max(0,g.ship.modules-1);g.ship.max=Math.max(0,g.ship.max-(tile.placed?40:30));g.ship.hp=Math.min(g.ship.hp,g.ship.max);
  g.resources.push({type:'item',itemKey:'hull',x:g.ship.x+tile.x*TILE,y:g.ship.y+8,z:g.ship.z+tile.z*TILE,vx:attack.edge.x*52,vy:22,vz:attack.edge.z*52,pickupAfter:g.time+1.2});
  g.enemy.raftAttack=null;scheduleNext(g);

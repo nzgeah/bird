@@ -44,6 +44,13 @@ function buildMesh(type,platform){
     for(const side of [-1,1])box(group,[5,8,36],[side*18,4,0],'#b39262');
     return group;
   }
+  if(type==='cargoPod'){
+    box(group,[38,24,32],[0,12,0],'#405864');
+    box(group,[34,3,28],[0,25,0],'#b18b55');
+    box(group,[28,2,2],[0,27,-14],'#75dfd2',true);
+    for(const side of [-1,1])box(group,[3,27,34],[side*17,13,0],'#71838a');
+    return group;
+  }
   box(group,[32,22,26],[0,11,0],'#61747d');
   box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
   if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');

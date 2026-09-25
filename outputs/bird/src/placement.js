@@ -1,5 +1,6 @@
 import {WALL_TYPES} from './building-parts.js';
 import {BUILDABLES} from './items.js';
+import {ejectStoredResources} from './storage.js';
 
 export const TILE_SIZE=BUILDABLES.hull.width, PLACEMENT_GAP=4, BUILD_REACH=230;
 export const DISMANTLE_TIME=5;
@@ -45,7 +46,7 @@ export function placeFromInventory(g,type,x,z,rotation=0){
   if(!result.valid){g.log=result.reason;return false;}
   g.buildInventory[type]--;
   if(type==='hull'){g.ship.tiles.push({x:x/TILE_SIZE,z:z/TILE_SIZE,placed:true});g.ship.modules++;g.ship.max+=40;g.ship.hp+=40;}
-  else {g.ship.objects.push({type,x,z,rotation});g.upgrades[type]=true;if(type==='engine')g.engineFuel=Math.max(g.engineFuel??0,45);}
+  else {const object={type,x,z,rotation};if(type==='cargoPod')object.storage={metal:0,polymer:0,circuit:0,cell:0};g.ship.objects.push(object);g.upgrades[type]=true;if(type==='engine')g.engineFuel=Math.max(g.engineFuel??0,45);}
   g.log='Установлено: '+BUILDABLES[type].name;
   if(type==='beacon'){g.won=true;g.log='Сигнал принят. BIRD снова в сети.';}
   return true;
@@ -105,6 +106,7 @@ export function updateDismantle(g,target,held,dt){
     g.ship.max=Math.max(0,g.ship.max-durability);
     g.ship.hp=Math.min(g.ship.hp,g.ship.max);
   }else{
+    ejectStoredResources(g,target.entity,position);
     g.ship.objects.splice(g.ship.objects.indexOf(target.entity),1);
     g.upgrades[type]=false;
   }
@@ -115,3 +117,4 @@ export function updateDismantle(g,target,held,dt){
   g.log='Разобрано: '+BUILDABLES[type].name+'. Предмет выброшен в космос.';
   return {active:false,completed:true,reason:g.log};
 }
+

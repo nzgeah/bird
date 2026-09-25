@@ -22,6 +22,7 @@ export const RECIPES=[
  {id:'wall',name:'Стена',desc:'Вертикальная секция · R — поворот',cost:{metal:3,polymer:2}},
  {id:'ceiling',name:'Потолок',desc:'Над палубой · высота 60 · магнитное крепление',cost:{metal:4,polymer:2}},
  {id:'engine',name:'Маневровый двигатель',desc:'Управление плотом · 45 секунд тяги на ячейку',cost:{metal:6,polymer:2,circuit:3,cell:1},once:true},
+ {id:'cargoPod',name:'Грузовой модуль',desc:'Герметичное хранилище · 24 единицы · E открыть',cost:{metal:4,polymer:2,circuit:1}},
  {id:'hook',name:'Магнитный крюк II',desc:'Дальность 520 → 820 м',cost:{metal:3,polymer:2},once:true},
  {id:'pulse',name:'Импульсный резак',desc:'ЛКМ: отгоняет и повреждает дрон',cost:{metal:3,circuit:2},once:true},
  {id:'blaster',name:'Плазменный бластер',desc:'3 → ЛКМ · 800 м · 1 ячейка за выстрел',cost:{metal:4,circuit:3,polymer:2},once:true},

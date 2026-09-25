@@ -10,9 +10,10 @@ import {createControls} from './controls.js';
 import {flightVector} from './spatial.js';
 import {resetMotion,GRAVITY} from './physics.js';
 import {DECK_TOP,EYE_HEIGHT} from './raft.js';
+import {STORAGE_CAPACITY,STORAGE_TYPES,storedTotal,transferStorage,usableStorage} from './storage.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
-let placement=null,selectedItem=null;
+let placement=null,selectedItem=null,activeStorage=null;
 let menuOpen=false;let game=createGame(),started=false,paused=false,last=performance.now(),view;
 try{view=new SpaceView(canvas);}catch(error){$('#intro').textContent='Не удалось запустить WebGL 2. Откройте игру в браузере с аппаратным ускорением. '+error.message;$('#start').disabled=true;throw error;}
 $('#start').disabled=true;
@@ -33,7 +34,7 @@ function selectHotbar(index){placement=null;hotbarIndex=(index+10)%10;const tool
 const controls=createControls(canvas,{
   lockError:()=>{game.log='Захват мыши отклонён браузером. Клик по игре — повторить.';},
   active,pause,cancel:()=>{if(!placement)return false;placement=null;game.log='Установка отменена. Предмет остался в инвентаре.';return true;},
-  key:(code,repeat)=>{if(code==='KeyE'&&!repeat&&!placement&&controls.locked()){if(toggleEngineControl(game,view.structureAim(game)))return true;if(distance(game.player,game.station)>=145&&game.tool==='hook')launchHook(game,view.aim(innerWidth/2,innerHeight/2,game).target);else pickupNearby(game);}if(code==='KeyG'){if(!repeat&&dropItem(game,hotbarTools[hotbarIndex],flightVector(controls.yaw,controls.pitch,1,0,0))){placement=null;updateUI();selectHotbar(hotbarIndex);}return true;}if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement&&!game.engineControl&&game.tool==='pulse')attack(game);},
+  key:(code,repeat)=>{if(code==='KeyE'&&!repeat&&!placement&&controls.locked()){const aimed=view.structureAim(game),storage=usableStorage(game,aimed);if(storage){setInventory(true,true,storage);return true;}if(toggleEngineControl(game,aimed))return true;if(distance(game.player,game.station)>=145&&game.tool==='hook')launchHook(game,view.aim(innerWidth/2,innerHeight/2,game).target);else pickupNearby(game);}if(code==='KeyG'){if(!repeat&&dropItem(game,hotbarTools[hotbarIndex],flightVector(controls.yaw,controls.pitch,1,0,0))){placement=null;updateUI();selectHotbar(hotbarIndex);}return true;}if(!placement||code!=='KeyR')return false;if(!repeat)placement.rotation=(placement.rotation+Math.PI/2)%(Math.PI*2);return true;},grounded:()=>onRaft(game),select:code=>selectHotbar(code==='Digit0'?9:Number(code.slice(-1))-1),attack:()=>{if(!placement&&!game.engineControl&&game.tool==='pulse')attack(game);},
   home:()=>{Object.assign(game.player,{x:game.ship.x,y:game.ship.y+DECK_TOP+EYE_HEIGHT,z:game.ship.z+35});resetMotion(game.player);game.player.velocity={...game.ship.velocity};game.hook=null;view.resetCamera=true;game.log='Аварийный магнитный трос: возврат на BIRD';},
   cycle:step=>selectHotbar(hotbarIndex+step),
   hook:(x,y)=>{if(game.engineControl)return;if(placement){const c=view.placementTarget(game,placement.type,placement.rotation);if(placeFromInventory(game,c.type,c.x,c.z,c.rotation)){if(!game.buildInventory[c.type])placement=null;if(game.won)showOutcome();}return;}if(view.structureAim(game))return;if(!game.tool)return;const point=view.aim(x,y,game).target;if(game.tool==='pulse')attack(game);else if(game.tool==='blaster')shoot(game,point);else fireMagnet(game,point);},
@@ -65,7 +66,7 @@ $('#place-item').onclick=()=>{if(!canPlay()||!BUILDABLES[selectedItem]||!game.bu
 $('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
 for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>{if(button.dataset.tool==='hook'||game.upgrades[button.dataset.tool]){selectHotbar(hotbarTools.indexOf(button.dataset.tool));updateUI();}};
 $('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.hidden;$('#cargo-tab').setAttribute('aria-pressed',String(!panel.hidden));};
-const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','arch','fence','roof','ceiling','engine','repairDock','solar','beacon'],repair:['repair']};
+const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','arch','fence','roof','ceiling','cargoPod','engine','repairDock','solar','beacon'],repair:['repair']};
 $('#craft-categories').innerHTML=[['tools','Инструменты'],['build','Строительство'],['repair','Ремонт']].map(([id,label])=>'<button data-category="'+id+'">'+label+'</button>').join('');
 for(const button of document.querySelectorAll('[data-category]'))button.onclick=()=>{for(const recipe of document.querySelectorAll('[data-recipe]'))recipe.hidden=!categories[button.dataset.category].includes(recipe.dataset.recipe);for(const tab of document.querySelectorAll('[data-category]'))tab.classList.toggle('selected',tab===button);};
 $('#recipes').innerHTML=RECIPES.map(recipe=>{
@@ -78,6 +79,7 @@ $('#recipes').innerHTML=RECIPES.map(recipe=>{
 }).join('');
 for(const button of document.querySelectorAll('[data-recipe]'))button.onclick=()=>{if(canPlay())craft(game,button.dataset.recipe,flightVector(controls.yaw,0,1,0,0));if(game.won||game.over)showOutcome();updateUI();};
 document.querySelector('[data-category="tools"]').click();
+$('#storage-resources').onclick=event=>{const button=event.target.closest('button[data-storage-type]');if(!button||!activeStorage)return;const type=button.dataset.storageType,all=button.dataset.all==='true';let amount=Number(button.dataset.amount);if(all)amount=amount>0?(game.inventory[type]??0):-(activeStorage.storage?.[type]??0);if(transferStorage(game,activeStorage,type,amount))updateUI();};
 function text(selector,value){const element=$(selector);if(element.textContent!==String(value))element.textContent=value;}
 function updateUI(){
   $('#hotbar').hidden=!started||paused||game.over||game.won;
@@ -98,9 +100,11 @@ function updateUI(){
   for(const button of document.querySelectorAll('[data-recipe]')){const recipe=RECIPES.find(recipe=>recipe.id===button.dataset.recipe);button.disabled=!canPlay()||!canCraft(game,recipe);const icon=recipe.once&&(game.upgrades[recipe.id]||game.buildInventory[recipe.id]>0)?'✓':'＋';if(button.querySelector('em').textContent!==icon)button.querySelector('em').textContent=icon;}
   const stationDistance=distance(game.player,game.station);
   text('#navigation',`ВЕКТОР ${Math.round(stationDistance)} м · BIRD ${Math.round(distance(game.player,game.ship))} м`);
-  const aimedStructure=active()&&controls.locked()?view.structureAim(game):null,engineAimed=canControlEngine(game,aimedStructure),shipSpeed=Math.hypot(game.ship.velocity.x,game.ship.velocity.y,game.ship.velocity.z).toFixed(1);
+  const aimedStructure=active()&&controls.locked()?view.structureAim(game):null,engineAimed=canControlEngine(game,aimedStructure),storageAimed=usableStorage(game,aimedStructure),shipSpeed=Math.hypot(game.ship.velocity.x,game.ship.velocity.y,game.ship.velocity.z).toFixed(1);
   const firstBite=game.enemy.raftAttack?.phase==='bite'&&game.enemy.raftAttack.showHint;
-  text('#interaction',firstBite?'ЗМЕЙКА ВЦЕПИЛАСЬ В ПАЛУБУ — ДВАЖДЫ УДАРЬТЕ ЕЁ В ГОЛОВУ!':game.engineControl?`ДВИГАТЕЛЬ · заряд ${Math.ceil(game.engineFuel)} с · скорость ${shipSpeed} м/с · WASD/Space/Ctrl · Shift форсаж · E выйти`:engineAimed?'E · управлять маневровым двигателем':stationDistance<145?`Удерживайте E · ${game.station.stock?'груз '+game.station.stock+'/16':game.archive?'архив получен':'извлечение архива'} ${Math.round(game.station.progress/.6*100)}%`:onRaft(game)?'Магнитные ботинки · Space: покинуть палубу':'Космос · Shift: спринт · Space/Ctrl: тяга · F: аварийный трос');
+  text('#interaction',firstBite?'ЗМЕЙКА ВЦЕПИЛАСЬ В ПАЛУБУ — ДВАЖДЫ УДАРЬТЕ ЕЁ В ГОЛОВУ!':game.engineControl?`ДВИГАТЕЛЬ · заряд ${Math.ceil(game.engineFuel)} с · скорость ${shipSpeed} м/с · WASD/Space/Ctrl · Shift форсаж · E выйти`:storageAimed?`E · открыть грузовой модуль · ${storedTotal(storageAimed)}/${STORAGE_CAPACITY}`:engineAimed?'E · управлять маневровым двигателем':stationDistance<145?`Удерживайте E · ${game.station.stock?'груз '+game.station.stock+'/16':game.archive?'архив получен':'извлечение архива'} ${Math.round(game.station.progress/.6*100)}%`:onRaft(game)?'Магнитные ботинки · Space: покинуть палубу':'Космос · Shift: спринт · Space/Ctrl: тяга · F: аварийный трос');
+  const storagePanel=$('#storage-panel');storagePanel.hidden=!activeStorage;
+  if(activeStorage){text('#storage-capacity',storedTotal(activeStorage)+' / '+STORAGE_CAPACITY);$('#storage-resources').innerHTML=STORAGE_TYPES.map(type=>{const names={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейки'},carried=game.inventory[type]??0,stored=activeStorage.storage?.[type]??0,full=storedTotal(activeStorage)>=STORAGE_CAPACITY;return `<div class="storage-row"><span>${names[type]} · у вас ${carried} · внутри ${stored}</span><span class="storage-actions"><button data-storage-type="${type}" data-amount="1" ${!carried||full?'disabled':''}>＋1</button><button data-storage-type="${type}" data-amount="1" data-all="true" ${!carried||full?'disabled':''}>всё →</button><button data-storage-type="${type}" data-amount="-1" ${!stored?'disabled':''}>−1</button><button data-storage-type="${type}" data-amount="-1" data-all="true" ${!stored?'disabled':''}>всё ←</button></span></div>`;}).join('');}
   for(const [id,target,name] of [['station-marker',game.station,'ВЕКТОР'],['ship-marker',game.ship,'BIRD']]){
     const marker=$('#'+id),point=view.waypoint(target,game),left=80,right=80;
     marker.style.left=Math.max(left,Math.min(innerWidth-right,point.x))+'px';marker.style.top=Math.max(100,Math.min(innerHeight-180,point.y))+'px';
@@ -149,7 +153,8 @@ requestAnimationFrame(frame);
 
 
 
-function setInventory(open,resume=true){
+function setInventory(open,resume=true,storage=null){
+  activeStorage=open?storage:null;
   menuOpen=open;controls.clear();if(open){$('#craft-panel').hidden=false;$('#cargo-tab').setAttribute('aria-pressed','true');}
   $('#inventory-menu').hidden=!open;
   document.body.classList.toggle('inventory-open',open);
