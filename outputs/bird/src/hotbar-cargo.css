@@ -1,0 +1,12 @@
+.inventory-open #hotbar{z-index:18}
+.inventory-open #inventory-menu{padding-bottom:125px}
+.inventory-open .inventory-window{max-height:calc(100vh - 160px)}
+.inventory-open #cargo-panel{max-height:calc(100vh - 295px);overflow-y:auto}
+.inventory-open #craft-panel{max-height:calc(100vh - 160px)}
+.inventory-open #cargo-tools{display:none}
+#hotbar .slot-content{pointer-events:none}
+#hotbar .cargo-thumbnail{width:65%;height:65%;object-fit:contain}
+#hotbar .cargo-name{font-size:8px;max-width:95%;overflow:hidden;white-space:nowrap}
+#hotbar .slot-content b{bottom:3px;right:8px}
+#hotbar .drop-target{background:#b0ffff;filter:drop-shadow(0 0 6px #5ee5e5)}
+.inventory-open #hotbar .cargo-slot:not(.empty){cursor:grab}

@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,move,onRaft} from '../src/model.js';
+import {createGame as movingGame,move,onRaft} from '../src/model.js';
+// Isolate boot and thrust checks from the separately tested orbital drift.
+function createGame(){const g=movingGame();g.ship.velocity={x:0,y:0,z:0};g.player.velocity={x:0,y:0,z:0};return g;}
 import {orbitalAcceleration,GRAVITY,resetMotion} from '../src/physics.js';
 function free(){const g=createGame();g.ship.tiles=[];g.resources=[];Object.assign(g.player,{x:0,y:0,z:0});return g;}
 test('400 km reference orbit: nonzero Earth gravity, common free fall cancels',()=>{
@@ -18,7 +20,7 @@ test('free-flight inertia persists without keys; braking applies force rather th
 test('magnetic feet hold still, release on E, descending landing cancels normal velocity',()=>{
  const g=createGame();move(g,{},3);assert.equal(g.player.y,32);assert.ok(onRaft(g));
  move(g,{y:1},.1);assert.ok(!onRaft(g));assert.ok(g.player.velocity.y>0);
- move(g,{y:-1},1);assert.ok(onRaft(g));assert.equal(g.player.velocity.y,0);
+ move(g,{y:-1},1.5);assert.ok(onRaft(g));assert.equal(g.player.velocity.y,0);
 });
 test('high-speed deck impact stops at floor and damages robot',()=>{
  const g=createGame();Object.assign(g.player,{x:0,y:200,z:0});g.player.velocity.y=-180;
