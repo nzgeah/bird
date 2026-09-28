@@ -12,12 +12,11 @@ test('raft recharges the robot and solar panels accelerate charging',()=>{
  const normal=createGame(),solar=createGame();normal.energy=solar.energy=20;solar.upgrades.solar=true;
  updateEnergy(normal,{},1);updateEnergy(solar,{},1);assert.equal(normal.energy,26);assert.equal(solar.energy,32);
 });
-test('empty power triggers an emergency return with reserve charge',()=>{
- const g=createGame();g.player.x=500;g.energy=.1;g.time=80;updateEnergy(g,{sprint:true},1);
- assert.equal(g.energy,15);assert.equal(g.player.x,g.ship.x);assert.ok(g.energyShutdownUntil>g.time);
+test('empty power damages the robot until death instead of teleporting it home',()=>{
+ const g=createGame();g.player.x=500;g.energy=.1;g.time=80;const hp=g.player.hp;updateEnergy(g,{sprint:true},1);
+ assert.equal(g.energy,0);assert.equal(g.player.x,500);assert.ok(g.player.hp<hp);assert.equal(g.energyDepleted,true);
 });
 test('hook and cutter consume power and sprint is reserved below five percent',()=>{
  const g=createGame();g.player.x=500;const full=g.energy;launchHook(g,{x:600,y:0,z:0});assert.equal(g.energy,full-1);
  g.upgrades.pulse=true;g.hook=null;assert.ok(attack(g));assert.equal(g.energy,full-3);g.energy=EMERGENCY_ENERGY;
 });
-
