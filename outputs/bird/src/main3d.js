@@ -88,6 +88,7 @@ storageGrid.addEventListener('dragstart',event=>{const slot=event.target.closest
 storageGrid.addEventListener('click',event=>{const slot=event.target.closest('[data-storage-key]');if(slot&&activeStorage&&transferStorage(game,activeStorage,slot.dataset.storageKey,-(activeStorage.storage?.[slot.dataset.storageKey]??0)))updateUI();});
 function text(selector,value){const element=$(selector);if(element.textContent!==String(value))element.textContent=value;}
 function updateUI(){
+  const raftPower=Math.ceil(game.ship.power??100);text('#raft-power-status',`ПЛОТ · PWR ${raftPower}%`);$('#raft-power-fill').style.width=Math.max(0,Math.min(100,raftPower))+'%';document.body.classList.toggle('raft-power-low',raftPower<=20);document.body.classList.toggle('scanner-off-raft',!onRaft(game));
   $('#hotbar').hidden=!started||paused||game.over||game.won;
   const heldValues={...cargoValues(game),hook:toolCount(game,'hook'),pulse:toolCount(game,'pulse'),blaster:toolCount(game,'blaster')};
   cargo.render(heldValues);showSelectedItem(selectedItem);
@@ -132,7 +133,8 @@ function pause(){
 $('#pause').onclick=pause;
 $('#resume-game').onclick=pause;
 $('#back-to-menu').onclick=showMainMenu;
-function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.energy>=2){game.energy-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: недостаточно энергии';}}}
+function updateRaftPower(dt){const ship=game.ship,solar=ship.objects.some(o=>o.type==='solar');let delta=0;if(game.engineThrust>.01)delta-=1.5*dt;if(solar&&onRaft(game))delta+=.9*dt;if(distance(game.player,game.station)<145)delta+=3*dt;ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));if(ship.power<=0&&game.engineThrust>0)game.log='Плот обесточен: двигатель отключён';}
+function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.ship.power>=2){game.ship.power-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: нет энергии плота';}}}
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=game.time<(game.energyShutdownUntil??0);
  document.body.classList.toggle('power-low',energy<=LOW_ENERGY);
@@ -156,7 +158,7 @@ function frame(now){
     scannerKeyHeld=scannerKey;
     if(!placement)structure=view.structureAim(game);
     updateDismantle(game,structure,!placement&&controls.primary,dt);
-    updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?flightInput:null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
+    updateRaftPower(dt);updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
     if(game.over||game.won)showOutcome();
   }else game.dismantle=null;
   damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
