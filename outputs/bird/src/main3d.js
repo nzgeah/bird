@@ -67,7 +67,7 @@ $('#place-item').onclick=()=>{if(!canPlay()||!BUILDABLES[selectedItem]||!game.bu
 $('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
 for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>{if(button.dataset.tool==='hook'||game.upgrades[button.dataset.tool]){selectHotbar(hotbarTools.indexOf(button.dataset.tool));updateUI();}};
 $('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.hidden;$('#cargo-tab').setAttribute('aria-pressed',String(!panel.hidden));};
-const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','arch','fence','roof','ceiling','cargoPod','engine','repairDock','solar','beacon','antenna'],repair:['repair']};
+const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','arch','fence','roof','ceiling','cargoPod','engine','repairDock','solar','beacon','antenna','battery'],repair:['repair']};
 $('#craft-categories').innerHTML=[['tools','Инструменты'],['build','Строительство'],['repair','Ремонт']].map(([id,label])=>'<button data-category="'+id+'">'+label+'</button>').join('');
 for(const button of document.querySelectorAll('[data-category]'))button.onclick=()=>{for(const recipe of document.querySelectorAll('[data-recipe]'))recipe.hidden=!categories[button.dataset.category].includes(recipe.dataset.recipe);for(const tab of document.querySelectorAll('[data-category]'))tab.classList.toggle('selected',tab===button);};
 $('#recipes').innerHTML=RECIPES.map(recipe=>{
@@ -88,7 +88,7 @@ storageGrid.addEventListener('dragstart',event=>{const slot=event.target.closest
 storageGrid.addEventListener('click',event=>{const slot=event.target.closest('[data-storage-key]');if(slot&&activeStorage&&transferStorage(game,activeStorage,slot.dataset.storageKey,-(activeStorage.storage?.[slot.dataset.storageKey]??0)))updateUI();});
 function text(selector,value){const element=$(selector);if(element.textContent!==String(value))element.textContent=value;}
 function updateUI(){
-  const raftPower=Math.ceil(game.ship.power??100);text('#raft-power-status',`БАТАРЕЙНЫЙ МОДУЛЬ · ${raftPower}%`);$('#raft-power-fill').style.width=Math.max(0,Math.min(100,raftPower))+'%';document.body.classList.toggle('raft-power-low',raftPower<=20);document.body.classList.toggle('scanner-off-raft',!onRaft(game));
+  document.body.classList.toggle('scanner-off-raft',!onRaft(game));
   $('#hotbar').hidden=!started||paused||game.over||game.won;
   const heldValues={...cargoValues(game),hook:toolCount(game,'hook'),pulse:toolCount(game,'pulse'),blaster:toolCount(game,'blaster')};
   cargo.render(heldValues);showSelectedItem(selectedItem);
@@ -133,7 +133,7 @@ function pause(){
 $('#pause').onclick=pause;
 $('#resume-game').onclick=pause;
 $('#back-to-menu').onclick=showMainMenu;
-function updateRaftPower(dt){const ship=game.ship,solar=ship.objects.some(o=>o.type==='solar');let delta=0;if(game.engineThrust>.01)delta-=1.5*dt;if(solar&&onRaft(game))delta+=.9*dt;if(distance(game.player,game.station)<145)delta+=3*dt;ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));if(ship.power<=0&&game.engineThrust>0)game.log='Плот обесточен: двигатель отключён';}
+function updateRaftPower(dt){const ship=game.ship,battery=ship.battery?.installed,solar=ship.objects.some(o=>o.type==='solar');if(!battery){ship.power=0;game.scanner.active=false;game.scanner.signal=false;return;}let delta=0;if(game.engineThrust>.01)delta-=1.5*dt;if(solar&&onRaft(game))delta+=.9*dt;if(distance(game.player,game.station)<145)delta+=3*dt;ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));if(ship.power<=0&&game.engineThrust>0)game.log='Плот обесточен: двигатель отключён';}
 function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.ship.power>=2){game.ship.power-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: нет энергии плота';}}}
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=energy<=0||game.time<(game.energyShutdownUntil??0);

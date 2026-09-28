@@ -14,6 +14,7 @@ export const BUILDABLES={
   solar:{name:'Солнечная панель',width:96,depth:26,height:22},
   beacon:{name:'Навигационный маяк',width:32,depth:26,height:70},
   antenna:{name:'Сканирующая антенна',width:28,depth:24,height:82},
+  battery:{name:'Батарейный модуль',width:34,depth:28,height:30},
 };
 export const ITEM_NAMES={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейка',
   ...Object.fromEntries(SCRAP_VARIANTS.map((key,i)=>[key,['Обрывок обшивки','Сломанная балка','Обломок трубы','Бронепанель','Обломок ротора','Фрагмент солнечной панели'][i]])),
