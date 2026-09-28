@@ -15,7 +15,7 @@ import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY} from './energy.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
 let placement=null,selectedItem=null,activeStorage=null;
-let menuOpen=false;let game=createGame(),started=false,paused=false,last=performance.now(),view;
+let menuOpen=false;let scannerKeyHeld=false;let game=createGame(),started=false,paused=false,last=performance.now(),view;
 try{view=new SpaceView(canvas);}catch(error){$('#intro').textContent='Не удалось запустить WebGL 2. Откройте игру в браузере с аппаратным ускорением. '+error.message;$('#start').disabled=true;throw error;}
 $('#start').disabled=true;
 $('#start').textContent='ЗАГРУЗКА МОДЕЛЕЙ И ТЕКСТУР…';
@@ -67,7 +67,7 @@ $('#place-item').onclick=()=>{if(!canPlay()||!BUILDABLES[selectedItem]||!game.bu
 $('#cargo-tools').innerHTML=['hook','pulse','blaster',null,null].map((tool,i)=>tool?`<button class="cargo-slot tool-slot" data-tool="${tool}" title="${['Крюк','Импульсный резак','Бластер'][i]}"><span class="slot-key">${i+1}</span><span class="tool-symbol">${['⌁','ϟ','⌐'][i]}</span><span class="tool-name">${['КРЮК','РЕЗАК','БЛАСТЕР'][i]}</span></button>`:'<div class="cargo-slot empty"></div>').join('');
 for(const button of document.querySelectorAll('[data-tool]'))button.onclick=()=>{if(button.dataset.tool==='hook'||game.upgrades[button.dataset.tool]){selectHotbar(hotbarTools.indexOf(button.dataset.tool));updateUI();}};
 $('#cargo-tab').onclick=()=>{const panel=$('#craft-panel');panel.hidden=!panel.hidden;$('#cargo-tab').setAttribute('aria-pressed',String(!panel.hidden));};
-const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','arch','fence','roof','ceiling','cargoPod','engine','repairDock','solar','beacon'],repair:['repair']};
+const categories={tools:['hook','pulse','blaster'],build:['hull','wall','windowWall','arch','fence','roof','ceiling','cargoPod','engine','repairDock','solar','beacon','antenna'],repair:['repair']};
 $('#craft-categories').innerHTML=[['tools','Инструменты'],['build','Строительство'],['repair','Ремонт']].map(([id,label])=>'<button data-category="'+id+'">'+label+'</button>').join('');
 for(const button of document.querySelectorAll('[data-category]'))button.onclick=()=>{for(const recipe of document.querySelectorAll('[data-recipe]'))recipe.hidden=!categories[button.dataset.category].includes(recipe.dataset.recipe);for(const tab of document.querySelectorAll('[data-category]'))tab.classList.toggle('selected',tab===button);};
 $('#recipes').innerHTML=RECIPES.map(recipe=>{
@@ -109,6 +109,7 @@ function updateUI(){
   const aimedStructure=active()&&controls.locked()?view.structureAim(game):null,engineAimed=canControlEngine(game,aimedStructure),storageAimed=usableStorage(game,aimedStructure),shipSpeed=Math.hypot(game.ship.velocity.x,game.ship.velocity.y,game.ship.velocity.z).toFixed(1);
   const firstBite=game.enemy.raftAttack?.phase==='bite'&&game.enemy.raftAttack.showHint;
   text('#interaction',firstBite?'ЗМЕЙКА ВЦЕПИЛАСЬ В ПАЛУБУ — ДВАЖДЫ УДАРЬТЕ ЕЁ В ГОЛОВУ!':game.engineControl?`ДВИГАТЕЛЬ · заряд ${Math.ceil(game.engineFuel)} с · скорость ${shipSpeed} м/с · WASD/Space/Ctrl · Shift форсаж · E выйти`:storageAimed?`E · открыть грузовой модуль · ${storedTotal(storageAimed)}/${STORAGE_CAPACITY}`:engineAimed?'E · управлять маневровым двигателем':stationDistance<145?`Удерживайте E · ${game.station.stock?'груз '+game.station.stock+'/16':game.archive?'архив получен':'извлечение архива'} ${Math.round(game.station.progress/.6*100)}%`:onRaft(game)?'Магнитные ботинки · Space: покинуть палубу':'Космос · Shift: спринт · Space/Ctrl: тяга · F: аварийный трос');
+  const scannerHud=$('#scanner-hud'),scanner=game.scanner;if(scanner?.active){scannerHud.hidden=false;const stationPoint=view.waypoint(game.station,game),dx=stationPoint.x-innerWidth/2,range=distance(game.player,game.station),arrow=Math.abs(dx)<90&&stationPoint.inFront?'↑':dx<0?'←':'→';$('#scanner-arrow').textContent=arrow;$('#scanner-text').textContent=scanner.signal?(range<250?'СТАНЦИЯ · БЛИЗКО':range<500?'СТАНЦИЯ · СРЕДНЕ':'СТАНЦИЯ · ДАЛЕКО'):'НЕТ СИГНАЛА В РАДИУСЕ';scannerHud.classList.toggle('no-signal',!scanner.signal);}else scannerHud.hidden=true;
   const storagePanel=$('#storage-panel');storagePanel.hidden=!activeStorage;
   if(activeStorage){text('#storage-capacity',storedTotal(activeStorage)+' / '+STORAGE_CAPACITY);const entries=Object.entries(activeStorage.storage??{}).filter(([,count])=>count>0);storageGrid.innerHTML=Array.from({length:24},(_,index)=>{const entry=entries[index];if(!entry)return '<button class="cargo-slot empty" aria-label="Пустой слот"></button>';const [key,count]=entry,name=ITEM_NAMES[key]??NAMES[key]??key,thumbnail=cargoOptions.thumbnails[key],icon={metal:'▱',polymer:'⬡',circuit:'▦',cell:'▰'}[key]??'▱';return `<button class="cargo-slot" draggable="true" data-storage-key="${key}" aria-label="${name}: ${count}" title="Перетащите в личный инвентарь или нажмите"><div class="slot-content">${thumbnail?`<img class="cargo-thumbnail" src="${thumbnail}" alt="">`:`<span class="cargo-icon" style="color:${COLORS[key]??'#9ce7d1'}">${icon}</span>`}<span class="cargo-name">${name}</span><b>${count}</b></div></button>`;}).join('');}
   for(const [id,target,name] of [['station-marker',game.station,'ВЕКТОР'],['ship-marker',game.ship,'BIRD']]){
@@ -131,6 +132,7 @@ function pause(){
 $('#pause').onclick=pause;
 $('#resume-game').onclick=pause;
 $('#back-to-menu').onclick=showMainMenu;
+function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.energy>=2){game.energy-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: недостаточно энергии';}}}
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=game.time<(game.energyShutdownUntil??0);
  document.body.classList.toggle('power-low',energy<=LOW_ENERGY);
@@ -149,9 +151,12 @@ function frame(now){
   updatePowerVision();
   let structure=null;
   if(active()&&controls.locked()){
+    const scannerKey=controls.keys.has('KeyE');
+    if(scannerKey&&!scannerKeyHeld&&!placement){const aimed=view.structureAim(game);if(aimed?.entity?.type==='antenna'){game.scanner.active=!game.scanner.active;game.scanner.timer=0;game.log=game.scanner.active?'Сканер включён · первый пинг через несколько секунд':'Сканер выключен';}}
+    scannerKeyHeld=scannerKey;
     if(!placement)structure=view.structureAim(game);
     updateDismantle(game,structure,!placement&&controls.primary,dt);
-    const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?flightInput:null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
+    updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?flightInput:null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
     if(game.over||game.won)showOutcome();
   }else game.dismantle=null;
   damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);

@@ -51,6 +51,13 @@ function buildMesh(type,platform){
     for(const side of [-1,1])box(group,[3,27,34],[side*17,13,0],'#71838a');
     return group;
   }
+  if(type==='antenna'){
+    box(group,[26,12,22],[0,6,0],'#4b6069');
+    box(group,[4,62,4],[0,42,0],'#b8875c');
+    box(group,[30,3,3],[0,55,0],'#71d6d5',true);
+    box(group,[3,3,26],[0,38,0],'#71d6d5',true);
+    return group;
+  }
   box(group,[32,22,26],[0,11,0],'#61747d');
   box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
   if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');
@@ -333,4 +340,3 @@ export class SpaceView{
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}
 }
-
