@@ -59,10 +59,12 @@ function buildMesh(type,platform){
     return group;
   }
   if(type==='battery'){
-    box(group,[34,24,28],[0,12,0],'#4f6068');
-    box(group,[28,3,22],[0,26,0],'#263b43');
-    const indicator=box(group,[20,3,3],[0,28,-10],'#73dfca',true);indicator.userData.batteryIndicator=true;
-    for(const side of [-1,1])box(group,[3,18,24],[side*15,12,0],'#9b7954');
+    box(group,[40,30,32],[0,15,0],'#40545e');
+    box(group,[34,22,3],[0,15,-18],'#172a30');
+    for(let i=-2;i<=2;i++){const bar=box(group,[4,15,3],[i*6,15,-20],'#73dfca',true);bar.userData.batteryBar=i+2;}
+    box(group,[13,4,4],[-10,33,0],'#c5a15e');box(group,[13,4,4],[10,33,0],'#c5a15e');
+    box(group,[4,5,4],[-10,37,0],'#d4e2df',true);box(group,[4,5,4],[10,37,0],'#d4e2df',true);
+    for(const side of [-1,1])box(group,[4,24,28],[side*19,15,0],'#98734e');
     return group;
   }
   box(group,[32,22,26],[0,11,0],'#61747d');
@@ -324,7 +326,7 @@ export class SpaceView{
     this.hand.position.z=game.cooldown>0?Math.sin(game.cooldown*15)*.25:0;
     this.beam.visible=!!game.shot;this.beam.material.color.set(game.shot?.magnetic?'#77eaff':'#ffb968');
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
-    for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryIndicator){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100)));node.material.color.set(power>.2?'#73dfca':'#e27752');node.material.emissive.set(power>.2?'#73dfca':'#e27752');node.material.emissiveIntensity=.25+power*1.2;}});}
+    for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryBar!==undefined){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100))),level=node.userData.batteryBar+1,lit=level<=Math.ceil(power*5),color=power<=.05?'#e34b4b':power<=.2?'#e7b649':'#73dfca';node.visible=true;node.material.color.set(lit?color:'#26383d');node.material.emissive.set(lit?color:'#26383d');node.material.emissiveIntensity=lit?.45+power:0;}});}
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();
     if(!this.previousEnemy||movement.length()>200){this.enemyForward.copy(this.ship.position).sub(this.head.position).normalize();}

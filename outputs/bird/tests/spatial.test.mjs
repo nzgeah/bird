@@ -1,3 +1,4 @@
+import {pickupNearby} from '../src/model.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame, move, launchHook, updateResources, updateEnemy, canCraft, RECIPES, explore, attack} from '../src/model.js';
@@ -5,6 +6,7 @@ import {flightVector, distance} from '../src/spatial.js';
 
 function emptyGame() {
   const game=createGame();
+  game.ship.velocity={x:0,y:0,z:0};game.player.velocity={x:0,y:0,z:0}; // isolate thrust from reference drift
   Object.assign(game.player,{x:0,y:0,z:0});
   game.resources=[];game.ship.tiles=[];
   return game;
@@ -30,7 +32,7 @@ test('camera-relative flight: yaw changes Z to X, pitch changes Y; Q/E world ver
 test('resource at same X/Y but different Z is not picked up by contact',()=>{
   const g=emptyGame();g.resources=[{x:0,y:0,z:150,type:'metal'}];
   updateResources(g,.016);assert.equal(g.inventory.metal,0);
-  move(g,{z:1},Math.sqrt(300/38));updateResources(g,.016);
+  move(g,{z:1},Math.sqrt(300/38));updateResources(g,.016);pickupNearby(g);
   assert.equal(g.inventory.metal,1);
 });
 

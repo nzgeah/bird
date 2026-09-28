@@ -21,7 +21,7 @@ test('authored platform fits tile footprint and physical walking surface',async(
  const asset=await parse('platform.glb'),platform=preparePlatform(asset.scene);
  let deck;platform.traverse(node=>{if(/main.?deck/i.test(node.name))deck=node;});
  const bounds=new THREE.Box3().setFromObject(deck),size=bounds.getSize(new THREE.Vector3());
- assert.ok(Math.abs(size.x-96)<1e-5&&Math.abs(size.z-96)<1e-5);
+ assert.ok(Math.abs(size.x-60)<1e-5&&Math.abs(size.z-60)<1e-5);
  assert.ok(Math.abs(bounds.max.y-8)<1e-5);
  assert.ok(Math.abs(new THREE.Box3().setFromObject(platform).min.y+8)<1e-5);
  const geo=deck.geometry,positions=geo.attributes.position,normals=geo.attributes.normal;

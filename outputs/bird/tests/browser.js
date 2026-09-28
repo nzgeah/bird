@@ -1,6 +1,7 @@
+import {placeFromInventory,updateDismantle} from '../src/placement.js';
 import {SpaceView} from '../src/render3d.js';
 import {createControls} from '../src/controls.js';
-import {createGame,tick,launchHook,craft,onRaft,updateEnemy,move} from '../src/model.js';
+import {createGame,tick,launchHook,craft,onRaft,updateEnemy,move,pickupNearby} from '../src/model.js';
 import {distance} from '../src/spatial.js';
 import {resetMotion} from '../src/physics.js';
 const output=document.querySelector('#result'),canvas=document.querySelector('canvas');
@@ -31,7 +32,7 @@ document.querySelector('#run').onclick=async()=>{
     };
     press('KeyW');assert(game.player.z< -4&&Math.abs(game.player.x)<.1,'W must change depth');
     press('KeyD');assert(game.player.x>4,'D must change X');
-    press('KeyE');assert(game.player.y>4,'E must change Y');
+    press('Space');assert(game.player.y>4,'E must change Y');
     results.push('PASS — keyboard → controls → simulation: X, Y, Z change independently');
     const before={...game.player};controls.yaw=Math.PI/2;press('KeyW');assert(game.player.x>before.x+4,'Yaw must rotate flight');
     results.push('PASS — camera yaw changes forward flight direction');
@@ -49,9 +50,15 @@ document.querySelector('#run').onclick=async()=>{
     const contactTarget={x:0,y:0,z:200,type:'cell',vx:0,vy:0,vz:0};
     game.resources=[contactTarget];tick(game,{x:0,y:0,z:0},1/60);
     assert(game.inventory.cell===0,'Depth-separated resource must not collect');
-    press('KeyS',194);assert(distance(game.player,contactTarget)<25,'Flight must reach resource depth');
+    press('KeyS',194);assert(distance(game.player,contactTarget)<25,'Flight must reach resource depth');pickupNearby(game);
     assert(game.inventory.cell===1,'Contact must collect after Z movement');
     results.push('PASS — contact collection only after reaching resource depth');
+    const dismantleGame=createGame(()=>.5),platformTile=dismantleGame.ship.tiles[0];
+    Object.assign(dismantleGame.player,{x:100,y:32,z:0});
+    const dismantled=updateDismantle(dismantleGame,{kind:'tile',entity:platformTile},true,5);
+    assert(dismantled.completed&&!dismantleGame.ship.tiles.includes(platformTile),'Platform block must dismantle after five seconds');
+    assert(dismantleGame.resources.some(r=>r.itemKey==='hull'),'Dismantled platform must become a recoverable item');
+    results.push('PASS — platform block dismantles into a flying inventory item');
     view.render(game,controls,1/60);
     assert(view.renderer.info.render.triangles>0,'WebGL must draw triangles');
     assert(view.renderer.getContext().getError()===0,'WebGL error');
@@ -63,11 +70,12 @@ document.querySelector('#run').onclick=async()=>{
     for(let i=0;i<180;i++)updateEnemy(raft,1/60);
     assert(raft.player.hp===100&&raft.ship.hp===120,'Raft must be safe');
     move(raft,{y:-1},1);assert(onRaft(raft),'Physical floor must stop downward motion');
-    raft.inventory={metal:20,polymer:20,circuit:20,cell:20};craft(raft,'hull',{x:1,z:0});craft(raft,'repairDock');craft(raft,'blaster');
+    raft.inventory={metal:20,polymer:20,circuit:20,cell:20};craft(raft,'hull');placeFromInventory(raft,'hull',160,0);craft(raft,'repairDock');raft.player.z=70;placeFromInventory(raft,'repairDock',0,0);craft(raft,'blaster');
     view.render(raft,controls,1/60);
-    assert(raft.ship.tiles.length===10&&raft.ship.objects.length===1&&raft.upgrades.blaster,'Craft must extend solid deck and add object/weapon');
+    assert(raft.ship.tiles.length===5&&raft.ship.objects.length===1&&raft.upgrades.blaster,'Craft must extend solid deck and add object/weapon');
     results.push('PASS — solid raft, safety against overlapping snake, crafted expansion, object and weapon');
-    assert(view.ship.children.filter(node=>node.name==='ImportedPlatform').length===10,'New raft tiles must use platform.glb');
+    let platformCount=0;view.ship.traverse(node=>{if(node.name==='ImportedPlatform')platformCount++;});
+    assert(platformCount===5,'New raft tiles must use platform.glb');
     assert(view.head.name==='ImportedSnakeHead'&&view.segments.length===18,'Imported snake parts must replace procedural boxes');
     assert(view.segments.every(node=>node.visible&&Number.isFinite(node.position.x)),'Snake must have a visible, finite tail');
     results.push('PASS — GLB models loaded, crafted tiles use imported platform, snake follows AI trail');
@@ -84,5 +92,3 @@ document.querySelector('#run').onclick=async()=>{
     output.textContent=results.join('\n')+'\n\n'+results.length+' / '+results.length+' passed';
   }catch(error){output.textContent=results.join('\n')+'\nFAIL: '+error.message;console.error(error);}
 };
-
-

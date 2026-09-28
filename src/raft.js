@@ -10,7 +10,8 @@ export function onRaft(g){
  if(!deckAt(g,g.player.x,g.player.z))return false;
  const feet=g.player.y-EYE_HEIGHT;
  if(Math.abs(feet-(g.ship.y+DECK_TOP))<.6)return true;
- return (g.ship.objects??[]).some(o=>{const x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return (partBounds(o)??[objectBounds(o)]).some(b=>x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6);});
+ const objects=[...(g.ship.battery?.installed?[g.ship.battery]:[]),...(g.ship.objects??[])];
+ return objects.some(o=>{const x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return (partBounds(o)??[objectBounds(o)]).some(b=>x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6);});
 }
 export function nextTile(g,direction={x:0,z:-1}){
  const tiles=g.ship.tiles??[],occupied=new Set(tiles.map(t=>`${t.x},${t.z}`)),candidates=new Map();
@@ -32,6 +33,7 @@ function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x+CONTACT_EPSILON&&p.x-BODY_
 export function moveWithCollisions(g,delta){
  const contacts=new Set();
  const steps=Math.max(1,Math.ceil(Math.hypot(delta.x,delta.y,delta.z)/4)),boxes=raftColliders(g);
+ if(g.ship.battery?.installed)for(const b of partBounds(g.ship.battery)??[objectBounds(g.ship.battery)])boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP+b.bottom,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});
  // Preserve the safe deck; outside it the head and visible body are solid.
  if(g.enemy&&!onRaft(g))for(const p of snakeSpheres(g.enemy))boxes.push({min:{x:p.x-p.radius,y:p.y-p.radius,z:p.z-p.radius},max:{x:p.x+p.radius,y:p.y+p.radius,z:p.z+p.radius}});
  for(let step=0;step<steps;step++)for(const axis of ['x','z','y']){
