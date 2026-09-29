@@ -11,7 +11,7 @@ import {flightVector} from './spatial.js';
 import {resetMotion,GRAVITY} from './physics.js';
 import {DECK_TOP,EYE_HEIGHT} from './raft.js';
 import {STORAGE_CAPACITY,storedTotal,transferStorage,usableStorage} from './storage.js';
-import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY,updateRaftPower} from './energy.js';
+import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY} from './energy.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
 let placement=null,selectedItem=null,activeStorage=null;
@@ -102,7 +102,7 @@ function updateUI(){
   for(const button of document.querySelectorAll('[data-tool]')){button.disabled=button.dataset.tool!=='hook'&&!game.upgrades[button.dataset.tool];button.classList.toggle('selected',button.dataset.tool===game.tool);}
 
   text('#hullText',Math.max(0,Math.round(game.ship.hp))+' / '+game.ship.max);
-  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const energy=Math.ceil(game.energy),charging=onRaft(game)&&energy<100;text('#power-status',charging?`DOCK POWER · CHARGING · ${energy}%`:`UNIT–07 · PWR ${energy}%`);$('#power-fill').style.width=Math.max(0,Math.min(100,game.energy))+'%';const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
+  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const energy=Math.ceil(game.energy),charging=!!game.energySource&&energy<100;text('#power-status',charging?`DOCK POWER · CHARGING · ${energy}%`:`UNIT–07 · PWR ${energy}%`);$('#power-fill').style.width=Math.max(0,Math.min(100,game.energy))+'%';const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
   text('#mode',!started?'3D / WEBGL':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
   text('#objective',game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
   text('#workshop',(onRaft(game)||distance(game.player,game.ship)<180)?'Палуба '+game.ship.modules+' секц. · крафт доступен':'Вне корабля · F: вернуться к мастерской');
@@ -160,10 +160,10 @@ function frame(now){
     scannerKeyHeld=scannerKey;
     if(!placement)structure=view.structureAim(game);
     updateDismantle(game,structure,!placement&&controls.primary,dt);
-    updateRaftPower(game,dt);updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
+    updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
     if(game.over||game.won)showOutcome();
   }else game.dismantle=null;
-  damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
+  damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won,game.player.maxHp);
   view.render(game,controls,dt,active()?placement:null);text('#tool-status','1 КРЮК · 2 РЕЗАК · 3 БЛАСТЕР | '+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР · ЯЧЕЕК '+game.inventory.cell}[game.tool]));
   if(active()&&!placement){
     const aim=view.aim(innerWidth/2,innerHeight/2,game);structure=view.structureAim(game);
@@ -204,4 +204,3 @@ addEventListener('keydown',event=>{
     event.preventDefault();event.stopImmediatePropagation();setInventory(false);
   }
 },true);
-

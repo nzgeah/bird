@@ -1,8 +1,9 @@
-export function damageLevel(hp){return 1-Math.max(0,Math.min(100,hp))/100;}
+export function damageLevel(hp,maxHp=100){return 1-Math.max(0,Math.min(maxHp,hp))/Math.max(1,maxHp);}
 export class DamageVision{
   constructor(world,overlay){this.world=world;this.overlay=overlay;this.ctx=overlay.getContext('2d');overlay.width=320;overlay.height=180;this.previous=100;this.shock=0;this.lastNoise=-1;this.noise=this.ctx.createImageData(320,180);}
-  update(hp,time,dt,visible){
-    const damage=damageLevel(hp);
+  update(hp,time,dt,visible,maxHp=100){
+    const damage=damageLevel(hp,maxHp);
+    if(damage===0){this.previous=hp;this.shock=0;}
     if(hp<this.previous)this.shock=Math.min(1,this.shock+(this.previous-hp)/20);
     if(hp>this.previous)this.shock=0;
     this.previous=hp;this.shock=Math.max(0,this.shock-dt*1.4);

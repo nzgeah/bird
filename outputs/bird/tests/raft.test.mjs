@@ -23,8 +23,8 @@ test('leaving edge or rising releases safety; landing restores it',()=>{
 test('ordinary pursuit cannot hurt player or raft while standing on a deck tile',()=>{
  const g=createGame();g.time=30;g.resources=[];g.enemy.nextRaftAttack=Infinity;Object.assign(g.enemy,{x:g.player.x,y:g.player.y,z:g.player.z});
  for(let i=0;i<120;i++)updateEnemy(g,1/60);
- assert.equal(g.player.hp,50);assert.equal(g.ship.hp,120);
- g.player.x=400;Object.assign(g.enemy,{x:400,y:g.player.y,z:g.player.z,bite:0,stun:0});updateEnemy(g,.01);assert.equal(g.player.hp,38);
+ assert.equal(g.player.hp,100);assert.equal(g.ship.hp,120);
+ g.player.x=400;Object.assign(g.enemy,{x:400,y:g.player.y,z:g.player.z,bite:0,stun:0});updateEnemy(g,.01);assert.equal(g.player.hp,88);
 });
 test('crafting extends toward selected direction and new tile is solid and safe',()=>{
  const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'hull'));assert.equal(g.ship.tiles.length,4);assert.ok(placeFromInventory(g,'hull',120,0));
@@ -41,4 +41,3 @@ test('blaster requires crafting and ammunition, hits in 3D and enforces cooldown
  Object.assign(g.enemy,target);assert.ok(shoot(g,target));assert.equal(g.enemy.hp,50);assert.equal(g.inventory.cell,1);assert.equal(shoot(g,target),false);
  g.cooldown=0;assert.ok(shoot(g,target));assert.equal(g.inventory.cell,0);g.cooldown=0;assert.equal(shoot(g,target),false);
 });
-

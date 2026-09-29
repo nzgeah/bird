@@ -24,7 +24,7 @@ test('magnetic feet hold still, release on E, descending landing cancels normal 
 });
 test('high-speed deck impact stops at floor and damages robot',()=>{
  const g=createGame();Object.assign(g.player,{x:0,y:200,z:0});g.player.velocity.y=-180;
- move(g,{},1);assert.equal(g.player.y,32);assert.equal(g.player.velocity.y,0);assert.ok(g.player.hp<50);
+ move(g,{},1);assert.equal(g.player.y,32);assert.equal(g.player.velocity.y,0);assert.ok(g.player.hp<100);
 });
 test('30/60/120 Hz input yields consistent acceleration and collision results',()=>{
  const simulate=hz=>{const g=free();for(let i=0;i<hz*3;i++)move(g,{x:1,y:.5,z:-1},1/hz);return g.player;};
@@ -34,4 +34,3 @@ test('30/60/120 Hz input yields consistent acceleration and collision results',(
 test('emergency return clears accumulated velocity and impact cooldown',()=>{
  const g=free();move(g,{x:1},2);resetMotion(g.player);assert.deepEqual(g.player.velocity,{x:0,y:0,z:0});assert.equal(g.player.impactCooldown,0);
 });
-
