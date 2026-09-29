@@ -17,3 +17,4 @@ export function partBounds(object){
   return {minX:cx-width/2,maxX:cx+width/2,minZ:cz-depth/2,maxZ:cz+depth/2,bottom:y-h/2,height:y+h/2};
  });
 }
+

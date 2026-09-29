@@ -32,4 +32,3 @@ test('dismantling a cargo module ejects every stored resource',()=>{
  assert.equal(g.resources.filter(resource=>resource.type==='cell').length>=3,true);
  assert.ok(g.resources.some(resource=>resource.itemKey==='cargoPod'));
 });
-

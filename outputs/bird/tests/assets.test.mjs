@@ -46,3 +46,4 @@ test('body samples follow corners and extend short histories without collapsing'
  assert.deepEqual(sampleTrail(points,50,new THREE.Vector3(0,0,1)).toArray(),[30,0,-20]);
  assert.deepEqual(sampleTrail(points.slice(0,1),30,new THREE.Vector3(0,0,1)).toArray(),[0,0,-30]);
 });
+

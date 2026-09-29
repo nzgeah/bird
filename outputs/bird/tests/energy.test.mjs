@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,launchHook,attack} from '../src/model.js';
+import {createGame,launchHook,attack,tick} from '../src/model.js';
 import {updateEnergy,EMERGENCY_ENERGY} from '../src/energy.js';
 
 test('energy drains in space and sprint drains it faster',()=>{
@@ -19,4 +19,12 @@ test('empty power damages the robot until death instead of teleporting it home',
 test('hook and cutter consume power and sprint is reserved below five percent',()=>{
  const g=createGame();g.player.x=500;const full=g.energy;launchHook(g,{x:600,y:0,z:0});assert.equal(g.energy,full-1);
  g.upgrades.pulse=true;g.hook=null;assert.ok(attack(g));assert.equal(g.energy,full-3);g.energy=EMERGENCY_ENERGY;
+});
+test('zero charge from using a tool on the raft starts health loss and ends in death',()=>{
+ const g=createGame();g.energy=1;launchHook(g,{x:600,y:0,z:0});assert.equal(g.energy,0);
+ const hp=g.player.hp;tick(g,{},.04);assert(g.player.hp<hp);assert.equal(g.energy,0);
+ g.player.hp=.1;tick(g,{},.04);assert.equal(g.player.hp,0);assert.equal(g.over,true);
+});
+test('low but nonzero charge does not itself damage health',()=>{
+ const g=createGame();g.player.x=500;g.energy=4;const hp=g.player.hp;updateEnergy(g,{},.04);assert.equal(g.player.hp,hp);
 });

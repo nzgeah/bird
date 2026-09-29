@@ -34,3 +34,4 @@ test('trajectory is consistent across 30, 60 and 120 Hz',()=>{
  const a=simulate(30),b=simulate(60),c=simulate(120);
  assert.ok(distance(a,b)<1e-7);assert.ok(distance(a,c)<1e-7);
 });
+

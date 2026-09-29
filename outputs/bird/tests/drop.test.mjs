@@ -15,3 +15,4 @@ test('dropping and recovering exact scrap, building and tool preserves counts',(
  }
 });
 test('empty or exhausted stacks cannot produce drops',()=>{const g=createGame();assert.equal(dropItem(g,'cell',{x:0,y:0,z:-1}),false);assert.equal(dropItem(g,null,{x:0,y:0,z:-1}),false);});
+

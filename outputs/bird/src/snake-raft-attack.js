@@ -67,4 +67,3 @@ export function updateSnakeRaftAttack(g,dt){
  if(attack.remaining<=0)detachTarget(g,attack);
  return true;
 }
-

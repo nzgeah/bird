@@ -7,3 +7,4 @@ export function updateAsteroids(g,elapsed){
   a.spinAngle=((a.spinAngle??0)+(a.spinRate??0)*dt)%(Math.PI*2);
  }
 }
+

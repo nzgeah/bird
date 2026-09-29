@@ -5,3 +5,4 @@ export function snakeSpheres(enemy){
  return result;
 }
 export function hitsSnake(enemy,start,end){return snakeSpheres(enemy).some(p=>segmentDistance(p,start,end)<p.radius+3);}
+

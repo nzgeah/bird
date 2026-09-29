@@ -27,3 +27,4 @@ export function segmentDistance(point, start, end) {
   const t = lengthSquared ? Math.max(0, Math.min(1, AXES.reduce((sum, axis, i) => sum + ((point[axis] ?? 0) - (start[axis] ?? 0)) * delta[i], 0) / lengthSquared)) : 0;
   return Math.hypot(...AXES.map((axis, i) => (point[axis] ?? 0) - ((start[axis] ?? 0) + delta[i] * t)));
 }
+

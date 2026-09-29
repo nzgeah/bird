@@ -6,6 +6,9 @@ import {SCRAP_VARIANTS,ASTEROID_VARIANTS,ASTEROID_SIZES} from './variants.js';
 import {flightVector, distance} from './spatial.js';
 import {TILE,DECK_TOP} from './raft.js';
 import {loadGameAssets,sampleTrail} from './assets.js';
+import {batteryMesh,setBatteryTemplate,updateBatteryDisplay} from './battery-visual.js';
+import {equipmentMesh,setEquipmentTemplates} from './equipment-visual.js';
+import {setMagneticModels,magneticModel,hookItem,syncMagneticEffects} from './magnetic-visual.js';
 export const COLORS={metal:'#d7b580',polymer:'#8ccbc7',circuit:'#bda1f0',cell:'#98d987'};
 
 const materials=new Map();
@@ -20,6 +23,8 @@ function box(parent,dimensions,position,color,glow=false){
   mesh.scale.set(...dimensions);mesh.position.set(...position);parent.add(mesh);return mesh;
 }
 function buildMesh(type,platform){
+  const equipment=equipmentMesh(type);if(equipment)return equipment;
+  if(type==='battery')return batteryMesh();
   const group=new THREE.Group();
   const parts=buildingParts(type);
   if(parts){for(const [w,h,d,x,y,z] of parts)box(group,[w,h,d],[x,y,z],type==='fence'?'#a28c65':'#536b75');return group;}
@@ -59,10 +64,12 @@ function buildMesh(type,platform){
     return group;
   }
   if(type==='battery'){
-    box(group,[34,24,28],[0,12,0],'#4f6068');
-    box(group,[28,3,22],[0,26,0],'#263b43');
-    const indicator=box(group,[20,3,3],[0,28,-10],'#73dfca',true);indicator.userData.batteryIndicator=true;
-    for(const side of [-1,1])box(group,[3,18,24],[side*15,12,0],'#9b7954');
+    box(group,[40,30,32],[0,15,0],'#40545e');
+    box(group,[34,22,3],[0,15,-18],'#172a30');
+    for(let i=-2;i<=2;i++){const bar=box(group,[4,15,3],[i*6,15,-20],'#73dfca',true);bar.userData.batteryBar=i+2;}
+    box(group,[13,4,4],[-10,33,0],'#c5a15e');box(group,[13,4,4],[10,33,0],'#c5a15e');
+    box(group,[4,5,4],[-10,37,0],'#d4e2df',true);box(group,[4,5,4],[10,37,0],'#d4e2df',true);
+    for(const side of [-1,1])box(group,[4,24,28],[side*19,15,0],'#98734e');
     return group;
   }
   box(group,[32,22,26],[0,11,0],'#61747d');
@@ -86,9 +93,12 @@ function makeDismantleVisual(group){
   return group;
 }
 function resourceMesh(resource,templates){
+  if(resource.itemKey==='hook')return hookItem();
+  if(resource.itemKey==='hull'&&templates?.hull){const mesh=templates.hull.clone(true);mesh.scale.multiplyScalar(18/28);mesh.userData.sharedAsset=true;return mesh;}
   if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.setScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
   resourceKey(resource);
-  if(resource.type==='metal'&&templates){const mesh=templates[resource.variant].clone(true);mesh.userData.sharedAsset=true;return mesh;}
+  const template=templates?.[resource.type==='metal'?resource.variant:resource.type];
+  if(template){const mesh=template.clone(true);mesh.userData.sharedAsset=true;return mesh;}
   return new THREE.Mesh(resource.type==='cell'?new THREE.OctahedronGeometry(12):new THREE.BoxGeometry(18,resource.type==='metal'?7:13,14),material(COLORS[resource.type],true));
 }
 function orientSmooth(object,target,dt,snap){
@@ -159,6 +169,11 @@ export class SpaceView{
     this.moduleSignature='';this.resetCamera=true;this.resize();
     this.enemyForward=new THREE.Vector3(0,0,1);this.previousEnemy=null;
     this.assetsReady=Promise.all([loadGameAssets(),this.earthReady]).then(([assets])=>{
+      setBatteryTemplate(assets.battery);
+      setEquipmentTemplates(assets.equipment);
+      setMagneticModels(assets.magnetic);
+      this.hookWeapon=magneticModel('magnetic-hook',4.2);this.hookWeapon.rotation.y=Math.PI;this.hookWeapon.position.set(3,-2.5,-7);this.camera.add(this.hookWeapon);
+      this.scene.remove(this.hook);this.hook.geometry.dispose();this.hook=magneticModel('attraction-orb',14);this.scene.add(this.hook);
       this.platformTemplate=assets.platform;
       this.floatingTemplates=assets.floating;
       for(const mesh of this.resourceMeshes.values()){this.scene.remove(mesh);mesh.geometry?.dispose();}
@@ -174,7 +189,7 @@ export class SpaceView{
   }
   resize(){this.renderer.setSize(innerWidth,innerHeight,false);this.camera.aspect=innerWidth/innerHeight;this.camera.updateProjectionMatrix();}
   rebuildShip(game){
-    const signature=JSON.stringify([game.ship.tiles,game.ship.objects,game.ship.battery?.installed]);
+    const signature=JSON.stringify([game.ship.tiles,game.ship.objects,game.ship.battery]);
     if(signature===this.moduleSignature)return;
     this.moduleSignature=signature;this.ship.clear();this.structureMeshes.clear();
     for(const tile of game.ship.tiles){
@@ -219,8 +234,8 @@ export class SpaceView{
     const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});renderer.setSize(128,96);renderer.outputColorSpace=THREE.SRGBColorSpace;
     const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight(0xffffff,0x456070,3));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(3,5,4);scene.add(light);
     const camera=new THREE.PerspectiveCamera(35,128/96,.01,2000),result={};
-    for(const key of Object.keys(ITEM_NAMES)){
-      const object=BUILDABLES[key]?buildMesh(key,this.platformTemplate):resourceMesh({type:SCRAP_VARIANTS.includes(key)?'metal':key,variant:SCRAP_VARIANTS.includes(key)?key:undefined},this.floatingTemplates);
+    for(const key of [...Object.keys(ITEM_NAMES),'hook']){
+      const object=key==='hook'?hookItem():key==='hull'?resourceMesh({itemKey:key},this.floatingTemplates):BUILDABLES[key]?buildMesh(key,this.platformTemplate):resourceMesh({type:SCRAP_VARIANTS.includes(key)?'metal':key,variant:SCRAP_VARIANTS.includes(key)?key:undefined},this.floatingTemplates);
       const bounds=new THREE.Box3().setFromObject(object),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
       object.position.sub(center);scene.add(object);const extent=Math.max(size.x,size.y,size.z,1);camera.position.set(extent*1.6,extent*1.2,extent*1.8);camera.lookAt(0,0,0);renderer.render(scene,camera);
       result[key]=renderer.domElement.toDataURL();scene.remove(object);
@@ -314,7 +329,8 @@ export class SpaceView{
     this.camera.position.copy(position);
     this.camera.lookAt(position.clone().add(new THREE.Vector3(forward.x,forward.y,forward.z)));
     this.hand.children[1].material=material(game.tool==='blaster'?'#ffc279':game.tool==='pulse'?'#b8a5ff':'#76d9c5',true);
-    this.hand.visible=!!game.tool;
+    this.hand.visible=!!game.tool&&game.tool!=='hook';
+    if(this.hookWeapon){this.hookWeapon.visible=game.tool==='hook'&&!placement;this.hookWeapon.position.z=-7+Math.max(0,(game.magnetReadyAt??0)-game.time)*.45;}
     const held=game.heldItem&&!['hook','pulse','blaster'].includes(game.heldItem)?game.heldItem:null;
     if(held!==this.heldKey){
       if(this.heldMesh){this.camera.remove(this.heldMesh);if(!this.heldMesh.userData.sharedAsset)this.heldMesh.geometry?.dispose();}
@@ -322,10 +338,12 @@ export class SpaceView{
       if(held){const mesh=BUILDABLES[held]?resourceMesh({itemKey:held},this.floatingTemplates):resourceMesh({type:SCRAP_VARIANTS.includes(held)?'metal':held,variant:SCRAP_VARIANTS.includes(held)?held:undefined},this.floatingTemplates);const bounds=new THREE.Box3().setFromObject(mesh),size=bounds.getSize(new THREE.Vector3());mesh.scale.multiplyScalar(4.5/Math.max(size.x,size.y,size.z));mesh.position.set(3,-2.7,-8);mesh.rotation.set(.25,-.5,.15);this.camera.add(mesh);this.heldMesh=mesh;}
     }
     this.hand.position.z=game.cooldown>0?Math.sin(game.cooldown*15)*.25:0;
-    this.beam.visible=!!game.shot;this.beam.material.color.set(game.shot?.magnetic?'#77eaff':'#ffb968');
+    this.beam.visible=!!game.shot&&!game.shot.magnetic;this.beam.material.color.set('#ffb968');
+    syncMagneticEffects(this,game);
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
-    for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryIndicator){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100)));node.material.color.set(power>.2?'#73dfca':'#e27752');node.material.emissive.set(power>.2?'#73dfca':'#e27752');node.material.emissiveIntensity=.25+power*1.2;}});}
+    for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryBar!==undefined){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100))),level=node.userData.batteryBar+1,lit=level<=Math.ceil(power*5),color=power<=.05?'#e34b4b':power<=.2?'#e7b649':'#73dfca';node.visible=true;node.material.color.set(lit?color:'#26383d');node.material.emissive.set(lit?color:'#26383d');node.material.emissiveIntensity=lit?.45+power:0;}});}
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
+    for(const [object,mesh] of this.structureMeshes)if(object.type==='battery')updateBatteryDisplay(mesh,game.ship.power??0,game.ship.maxPower??100,game.time);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();
     if(!this.previousEnemy||movement.length()>200){this.enemyForward.copy(this.ship.position).sub(this.head.position).normalize();}
     else if(movement.lengthSq()>1e-7)this.enemyForward.copy(movement).normalize();

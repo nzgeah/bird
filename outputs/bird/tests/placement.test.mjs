@@ -80,3 +80,4 @@ test('starter platform blocks can be dismantled individually',()=>{
  assert.equal(g.ship.tiles.includes(tile),false);assert.equal(g.ship.max,before-30);
  assert.equal(g.resources.at(-1).itemKey,'hull');
 });
+

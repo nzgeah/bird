@@ -1,0 +1,13 @@
+<!doctype html><html><meta charset="utf-8"><title>SpaceBird — палуба и солнечная панель</title><style>body{margin:0;background:#050a14;color:white;font:15px Arial}#status{position:absolute;left:24px;top:20px;background:#0b142be0;padding:14px}footer{position:absolute;bottom:20px;left:24px}button{padding:12px;margin-right:8px}</style><canvas id="scene"></canvas><div id="status">Загрузка игровых моделей…</div><footer><button id="tile">Добавить секцию</button><button id="solar">Солнечная панель</button><button id="preview">Предпросмотр секции</button></footer><script type="module">
+import {SpaceView} from '../src/render3d.js';import {createGame} from '../src/model.js';
+const view=new SpaceView(document.querySelector('canvas')),game=createGame();
+game.resources=[];game.asteroids=[];game.tool=null;game.ship.battery.installed=false;game.enemy.x=10000;game.ship.objects=[{type:'solar',x:30,z:0,rotation:0}];
+game.player.x=145;game.player.y=145;game.player.z=195;
+const dx=30-game.player.x,dy=5-game.player.y,dz=30-game.player.z,look={yaw:Math.atan2(dx,-dz),pitch:Math.atan2(dy,Math.hypot(dx,dz))};
+await view.assetsReady;let preview=false;
+document.querySelector('#tile').onclick=()=>game.ship.tiles.push({x:2,z:1,placed:true});
+document.querySelector('#solar').onclick=()=>game.ship.objects=game.ship.objects.length?[]:[{type:'solar',x:30,z:0,rotation:0}];
+document.querySelector('#preview').onclick=()=>preview=!preview;
+function draw(){view.render(game,look,.016);if(preview)view.showPlacement(game,{type:'hull',x:120,z:0,rotation:0,valid:true});else view.showPlacement(game,null);view.renderer.render(view.scene,view.camera);requestAnimationFrame(draw);}draw();
+document.querySelector('#status').textContent='Игровой рендер · новая палуба + солнечная панель';
+</script></html>

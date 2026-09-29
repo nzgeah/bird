@@ -23,3 +23,4 @@ test('rotated arch preserves passage and roof blocks ascent without filling room
  Object.assign(g.player,{x:25,y:32,z:0});moveWithCollisions(g,{x:-50,y:0,z:0});assert.ok(Math.abs(g.player.x+25)<1e-8);
  moveWithCollisions(g,{x:0,y:150,z:0});assert.ok(g.player.y>60&&g.player.y<90);
 });
+

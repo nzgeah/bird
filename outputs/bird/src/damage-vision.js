@@ -20,3 +20,4 @@ export class DamageVision{
     const vignette=ctx.createRadialGradient(160,90,45,160,90,185);vignette.addColorStop(0,'transparent');vignette.addColorStop(1,'rgba(0,7,13,'+(damage*.85)+')');ctx.fillStyle=vignette;ctx.fillRect(0,0,w,h);
   }
 }
+
