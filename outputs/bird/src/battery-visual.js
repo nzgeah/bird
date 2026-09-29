@@ -11,7 +11,7 @@ export function batteryMesh(){
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
  const screen=new THREE.Mesh(new THREE.PlaneGeometry(.65,.40),new THREE.MeshBasicMaterial({map:texture,toneMapped:false}));
  screen.position.set(0,1.07,.514);model.add(screen);
- model.scale.setScalar(24);model.rotation.y=Math.PI;
+ model.scale.setScalar(12);model.rotation.y=Math.PI;
  root.add(model);root.userData.batteryDisplay={canvas,texture,screen,last:''};
  updateBatteryDisplay(root,100,100,0);
  return root;

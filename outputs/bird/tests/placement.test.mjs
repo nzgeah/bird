@@ -17,16 +17,16 @@ test('solar wings, clearance, rotation and deck edges all affect placement',()=>
  assert.equal(validatePlacement(g,'solar',76,0,0).valid,false);
  assert.equal(validatePlacement(g,'solar',76,0,Math.PI/2).valid,true);
  assert.ok(placeFromInventory(g,'solar',0,-40));
- assert.equal(validatePlacement(g,'repairDock',62,-40).valid,false);
- assert.equal(validatePlacement(g,'repairDock',68,-40).valid,true);
- assert.equal(validatePlacement(g,'solar',0,0,Math.PI/2).valid,false);
+ assert.equal(validatePlacement(g,'repairDock',34,-40).valid,false);
+ assert.equal(validatePlacement(g,'repairDock',38,-40).valid,true);
+ assert.equal(validatePlacement(g,'solar',0,-40,Math.PI/2).valid,false);
  assert.equal(validatePlacement(g,'solar',0,0,.2).valid,false);
 });
 test('footprint cannot bridge a missing tile, but can straddle adjacent tiles',()=>{
  const g=stocked();g.buildInventory.solar=1;
- assert.equal(validatePlacement(g,'solar',30,-40).valid,true);
+ assert.equal(validatePlacement(g,'solar',30,-30).valid,true);
  g.ship.tiles=g.ship.tiles.filter(t=>t.x!==0||t.z!==0);
- assert.equal(validatePlacement(g,'solar',30,-40).valid,false);
+ assert.equal(validatePlacement(g,'solar',30,-30).valid,false);
 });
 test('hull snaps to a neighbouring tile; cannot overlap, float away, or be placed out of reach',()=>{
  const g=stocked();craft(g,'hull');assert.equal(g.ship.modules,9);
@@ -36,7 +36,7 @@ test('hull snaps to a neighbouring tile; cannot overlap, float away, or be place
 test('preview bounds match collision boxes for a rotated solar panel',()=>{
  const g=stocked();g.buildInventory.solar=1;placeFromInventory(g,'solar',60,0,Math.PI/2);
  const b=objectBounds(g.ship.objects[0]),c=raftColliders(g).at(-1);
- assert.deepEqual([c.min.x,c.max.x,c.min.z,c.max.z],[b.minX,b.maxX,b.minZ,b.maxZ]);assert.equal(b.maxZ-b.minZ,96);
+ assert.deepEqual([c.min.x,c.max.x,c.min.z,c.max.z],[b.minX,b.maxX,b.minZ,b.maxZ]);assert.equal(b.maxZ-b.minZ,48);
 });
 test('beacon wins and repair station activates only after placement',()=>{
  const g=stocked();g.archive=true;assert.ok(craft(g,'beacon'));assert.equal(g.won,false);assert.ok(placeFromInventory(g,'beacon',-60,0));assert.equal(g.won,true);
@@ -82,7 +82,7 @@ test('starter platform blocks can be dismantled individually',()=>{
 });
 test('dismantling a deck section ejects the building mounted on it',()=>{
  const g=stocked();g.player.x=-100;g.player.z=-100;g.buildInventory.repairDock=1;
- assert.ok(placeFromInventory(g,'repairDock',60,60));
+ assert.ok(placeFromInventory(g,'repairDock',36,60));
  const tile=g.ship.tiles.find(t=>t.x===1&&t.z===1),target={kind:'tile',entity:tile};
  assert.equal(canDismantle(g,target).valid,true);
  assert.equal(updateDismantle(g,target,true,5).completed,true);
@@ -90,4 +90,3 @@ test('dismantling a deck section ejects the building mounted on it',()=>{
  assert.deepEqual(g.resources.slice(-3).map(resource=>resource.itemKey),['repairDock','battery','hull']);
  assert.equal(g.ship.battery.installed,false);
 });
-

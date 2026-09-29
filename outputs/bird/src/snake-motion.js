@@ -1,3 +1,4 @@
+import {resolveSnakePoint,resolveSnakeBody} from './snake-collision.js';
 import {distance} from './spatial.js';
 
 const length=v=>Math.hypot(v.x,v.y,v.z);
@@ -18,6 +19,7 @@ export function turnTowards(current,target,maxAngle){
 }
 
 export function advanceSnake(enemy,target,elapsed){
+  resolveSnakePoint(enemy,22,enemy.obstacles);
   const desiredSpeed=enemy.stun>0?130:144;
   const direction=()=>{
     const sign=enemy.stun>0?-1:1;
@@ -33,9 +35,11 @@ export function advanceSnake(enemy,target,elapsed){
   for(let i=0;i<steps;i++){
     motion.heading=turnTowards(motion.heading,direction(),1.8*dt);
     motion.speed+=(desiredSpeed-motion.speed)*(1-Math.exp(-5*dt));
-    for(const axis of ['x','y','z'])enemy[axis]+=motion.heading[axis]*motion.speed*dt;
+    let blocked=false;
+    for(const axis of ['x','z','y']){enemy[axis]+=motion.heading[axis]*motion.speed*dt;blocked=resolveSnakePoint(enemy,22,enemy.obstacles)||blocked;}
+    if(blocked){motion.heading=turnTowards(motion.heading,{x:0,y:1,z:0},4*dt);enemy.y+=motion.speed*dt;resolveSnakePoint(enemy,22,enemy.obstacles);}
     if(distance(enemy,enemy.segments[0])>=2){enemy.segments.unshift({x:enemy.x,y:enemy.y,z:enemy.z});enemy.segments.length=Math.min(201,enemy.segments.length);}
   }
+  resolveSnakeBody(enemy);
   motion.last={x:enemy.x,y:enemy.y,z:enemy.z};
 }
-

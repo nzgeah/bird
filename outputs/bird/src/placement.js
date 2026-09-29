@@ -30,7 +30,7 @@ export function validatePlacement(g,type,x,z,rotation=0){
   for(let tx=Math.floor((b.minX+TILE_SIZE/2)/TILE_SIZE);tx<=Math.floor((b.maxX+TILE_SIZE/2-1e-6)/TILE_SIZE);tx++)
     for(let tz=Math.floor((b.minZ+TILE_SIZE/2)/TILE_SIZE);tz<=Math.floor((b.maxZ+TILE_SIZE/2-1e-6)/TILE_SIZE);tz++)
       if(!g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Объект выходит за край палубы');
-  for(const object of g.ship.objects){
+  for(const object of [...g.ship.objects,...(g.ship.battery?.installed?[g.ship.battery]:[])]){
     const other=objectBounds(object);
     // Perpendicular wall panels may join at their solid corner.
     if(WALL_TYPES.includes(type)&&WALL_TYPES.includes(object.type)&&Math.abs(Math.round((rotation-(object.rotation??0))/(Math.PI/2)))%2)continue;
@@ -132,4 +132,3 @@ export function updateDismantle(g,target,held,dt){
   g.log='Разобрано: '+BUILDABLES[type].name+'. Предмет выброшен в космос.';
   return {active:false,completed:true,reason:g.log};
 }
-
