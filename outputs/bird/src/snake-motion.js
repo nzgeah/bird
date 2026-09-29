@@ -38,3 +38,4 @@ export function advanceSnake(enemy,target,elapsed){
   }
   motion.last={x:enemy.x,y:enemy.y,z:enemy.z};
 }
+

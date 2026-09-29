@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+let s=fs.readFileSync(new URL('../battery-v2/index.html',import.meta.url),'utf8');
+s=s.replaceAll('Battery model','Equipment models').replace('BATTERY MODULE','ORBITAL EQUIPMENT').replace('82% · graphite / titanium / phosphor','CARGO MODULE / SCANNER / MANEUVERING ENGINE');
+s=s.replace("camera.position.set(2.65,2.35,3.8);camera.lookAt(0,.94,0)","camera.position.set(3.0,3.1,7.6);camera.lookAt(0,1,0)");
+const start=s.indexOf('let model;'),end=s.indexOf("document.querySelector('#front').onclick");
+s=s.slice(0,start)+`let model=new T.Group();scene.add(model);let count=0;
+for(const [type,x] of [['cargoPod',-2],['antenna',0],['engine',2]])new GLTFLoader().load(type+'.glb',g=>{g.scene.position.x=x;g.scene.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;count++;}});model.add(g.scene);document.querySelector('#status').textContent=count+' meshes · GLB loaded';},undefined,e=>document.querySelector('#status').textContent=String(e));
+`+s.slice(end);
+s=s.replace('<a href="SpaceBird-Battery.glb" download>Download GLB</a>','<a href="cargoPod.glb" download>Cargo GLB</a><a href="antenna.glb" download>Scanner GLB</a><a href="engine.glb" download>Engine GLB</a>');
+fs.writeFileSync(new URL('../equipment/index.html',import.meta.url),s);

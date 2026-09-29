@@ -54,3 +54,4 @@ export function advancePlayer(g,input,elapsed){
  p.grounded=onRaft(g);
 }
 export function resetMotion(player){player.velocity={x:0,y:0,z:0};player.impactCooldown=0;}
+

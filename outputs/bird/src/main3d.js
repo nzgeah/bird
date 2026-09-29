@@ -21,6 +21,8 @@ $('#start').disabled=true;
 $('#start').textContent='ЗАГРУЗКА МОДЕЛЕЙ И ТЕКСТУР…';
 view.assetsReady.then(()=>{
   cargoOptions.thumbnails=view.itemThumbnails();
+  const hookSymbol=document.querySelector('[data-tool="hook"] .tool-symbol');
+  if(hookSymbol){const image=document.createElement('img');image.src=cargoOptions.thumbnails.hook;image.alt='Магнитный крюк';image.className='cargo-thumbnail';hookSymbol.replaceWith(image);}
   for(const image of document.querySelectorAll('[data-craft-preview]'))image.src=cargoOptions.thumbnails[image.dataset.craftPreview];
   document.body.dataset.assets='ready';$('#start').disabled=false;$('#start').textContent='НОВАЯ ИГРА';
 }).catch(error=>{
@@ -137,6 +139,7 @@ function updateRaftPower(dt){const ship=game.ship,battery=ship.battery?.installe
 function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.ship.power>=2){game.ship.power-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: нет энергии плота';}}}
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=energy<=0||game.time<(game.energyShutdownUntil??0);
+ document.body.classList.toggle('power-full',energy>=100);
  document.body.classList.toggle('power-low',energy<=LOW_ENERGY);
  document.body.classList.toggle('power-critical',energy<=CRITICAL_ENERGY);
  document.body.classList.toggle('power-emergency',energy<=EMERGENCY_ENERGY);

@@ -20,3 +20,4 @@ test('uncollected resources do not stop stream during a long voyage',()=>{
  assert.ok(g.streamIndex>lateCount,"stream continues during final minute");assert.ok(max<=STREAM_LIMIT);assert.ok(g.resources.length>20);
  assert.ok(g.resources.some(r=>r.z<g.ship.z-300));
 });
+

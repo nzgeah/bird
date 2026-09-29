@@ -12,3 +12,4 @@ test('contact and hook collect each resource exactly once',()=>{const g=createGa
 function createGame(){const g=createVolumeGame();g.ship.velocity={x:0,y:0,z:0};g.player.velocity={x:0,y:0,z:0};Object.assign(g.player,{x:0,y:0,z:0});g.enemy.z=0;g.station.z=0;return g;}
 
 
+

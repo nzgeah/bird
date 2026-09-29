@@ -24,3 +24,4 @@ export function createAsteroids(){
       spinAxis:axis.map(v=>v/length),spinRate:(.07+random()*.05)*100/a.size*(random()<.5?-1:1),spinAngle:random()*Math.PI*2};
   });
 }
+

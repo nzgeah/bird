@@ -43,3 +43,4 @@ export function createControls(canvas,actions){
     state.pointer={x:innerWidth/2,y:innerHeight/2};
   });return state;
 }
+

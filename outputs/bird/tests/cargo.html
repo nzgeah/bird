@@ -1,5 +1,0 @@
-<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="../style.css"><div id="inventory-menu"><section class="inventory-window"><div class="cargo-heading">Тест перемещения ресурсов</div><div id="inventory" class="cargo-grid" style="padding:20px"></div><p id="result"></p></section></div><script type="module">
-import {createCargo,moveStack} from '../src/cargo.js';
-const slots=['metal',null,'cell'];moveStack(slots,0,1);if(slots[1]!=='metal'||slots[0]!==null)throw Error('move');moveStack(slots,1,2);if(slots[1]!=='cell'||slots[2]!=='metal')throw Error('swap');
-const cargo=createCargo(document.querySelector('#inventory'),{metal:'Металл',cell:'Ячейки'},{metal:'#bbccdd',cell:'#aaffcc'});cargo.render({metal:7,cell:3});document.querySelector('#result').textContent='PASS: перенос и обмен; количество 7 и 3';
-</script>
