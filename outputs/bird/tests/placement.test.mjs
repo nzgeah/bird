@@ -80,4 +80,14 @@ test('starter platform blocks can be dismantled individually',()=>{
  assert.equal(g.ship.tiles.includes(tile),false);assert.equal(g.ship.max,before-30);
  assert.equal(g.resources.at(-1).itemKey,'hull');
 });
+test('dismantling a deck section ejects the building mounted on it',()=>{
+ const g=stocked();g.player.x=-100;g.player.z=-100;g.buildInventory.repairDock=1;
+ assert.ok(placeFromInventory(g,'repairDock',60,60));
+ const tile=g.ship.tiles.find(t=>t.x===1&&t.z===1),target={kind:'tile',entity:tile};
+ assert.equal(canDismantle(g,target).valid,true);
+ assert.equal(updateDismantle(g,target,true,5).completed,true);
+ assert.equal(g.ship.objects.some(object=>object.type==='repairDock'),false);
+ assert.deepEqual(g.resources.slice(-3).map(resource=>resource.itemKey),['repairDock','battery','hull']);
+ assert.equal(g.ship.battery.installed,false);
+});
 

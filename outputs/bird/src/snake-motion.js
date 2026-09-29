@@ -18,7 +18,7 @@ export function turnTowards(current,target,maxAngle){
 }
 
 export function advanceSnake(enemy,target,elapsed){
-  const desiredSpeed=enemy.stun>0?65:72;
+  const desiredSpeed=enemy.stun>0?130:144;
   const direction=()=>{
     const sign=enemy.stun>0?-1:1;
     const delta={x:(target.x-enemy.x)*sign,y:(target.y-enemy.y)*sign,z:((target.z??0)-enemy.z)*sign};

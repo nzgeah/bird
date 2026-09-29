@@ -11,7 +11,7 @@ import {flightVector} from './spatial.js';
 import {resetMotion,GRAVITY} from './physics.js';
 import {DECK_TOP,EYE_HEIGHT} from './raft.js';
 import {STORAGE_CAPACITY,storedTotal,transferStorage,usableStorage} from './storage.js';
-import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY} from './energy.js';
+import {LOW_ENERGY,CRITICAL_ENERGY,EMERGENCY_ENERGY,updateRaftPower} from './energy.js';
 const $=selector=>document.querySelector(selector),canvas=$('#space');
 const damageVision=new DamageVision(canvas,$('#damage-vision'));
 let placement=null,selectedItem=null,activeStorage=null;
@@ -135,7 +135,6 @@ function pause(){
 $('#pause').onclick=pause;
 $('#resume-game').onclick=pause;
 $('#back-to-menu').onclick=showMainMenu;
-function updateRaftPower(dt){const ship=game.ship,battery=ship.battery?.installed,solar=ship.objects.some(o=>o.type==='solar');if(!battery){ship.power=0;game.scanner.active=false;game.scanner.signal=false;return;}let delta=0;if(game.engineThrust>.01)delta-=1.5*dt;if(solar&&onRaft(game))delta+=.9*dt;if(distance(game.player,game.station)<145)delta+=3*dt;ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));if(ship.power<=0&&game.engineThrust>0)game.log='Плот обесточен: двигатель отключён';}
 function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.ship.power>=2){game.ship.power-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: нет энергии плота';}}}
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=energy<=0||game.time<(game.energyShutdownUntil??0);
@@ -161,7 +160,7 @@ function frame(now){
     scannerKeyHeld=scannerKey;
     if(!placement)structure=view.structureAim(game);
     updateDismantle(game,structure,!placement&&controls.primary,dt);
-    updateRaftPower(dt);updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
+    updateRaftPower(game,dt);updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
     if(game.over||game.won)showOutcome();
   }else game.dismantle=null;
   damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
@@ -205,3 +204,4 @@ addEventListener('keydown',event=>{
     event.preventDefault();event.stopImmediatePropagation();setInventory(false);
   }
 },true);
+

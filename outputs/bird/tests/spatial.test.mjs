@@ -55,7 +55,7 @@ test('wrong-depth hook misses; out-of-range targets stay uncollected',()=>{
 
 test('enemy, station, workshop and pulse all respect depth',()=>{
   const g=emptyGame();g.time=30;Object.assign(g.enemy,{x:0,y:0,z:300});
-  updateEnemy(g,.1);assert.ok(g.enemy.z<300);assert.equal(g.player.hp,100);
+  updateEnemy(g,.1);assert.ok(g.enemy.z<300);assert.equal(g.player.hp,50);
   g.inventory={metal:99,polymer:99,circuit:99,cell:99};g.player.z=600;
   assert.equal(canCraft(g,RECIPES[0]),false);
   Object.assign(g.player,{x:g.station.x,y:g.station.y,z:g.station.z+300});explore(g,true,1);

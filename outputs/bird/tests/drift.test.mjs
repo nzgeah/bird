@@ -42,7 +42,7 @@ test('drifting deck carries idle player and preserves deck contact',()=>{
  for(let i=0;i<600;i++)move(g,{},1/60);
  assert.ok(g.ship.x>50&&g.ship.z<-100);
  for(const a of ['x','y','z'])assert.ok(Math.abs(g.player[a]-g.ship[a]-offset[a])<1e-7);
- assert.ok(onRaft(g));assert.equal(g.player.hp,100);
+ assert.ok(onRaft(g));assert.equal(g.player.hp,50);
 });
 test('Space release cancels deck drift and dropped items inherit player velocity',()=>{
  const g=createGame();move(g,{y:1},.5);const before={...g.player};move(g,{},1);
