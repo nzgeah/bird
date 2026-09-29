@@ -34,4 +34,3 @@ test('30/60/120 Hz input yields consistent acceleration and collision results',(
 test('emergency return clears accumulated velocity and impact cooldown',()=>{
  const g=free();move(g,{x:1},2);resetMotion(g.player);assert.deepEqual(g.player.velocity,{x:0,y:0,z:0});assert.equal(g.player.impactCooldown,0);
 });
-

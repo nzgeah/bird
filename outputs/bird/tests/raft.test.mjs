@@ -33,7 +33,7 @@ test('crafting extends toward selected direction and new tile is solid and safe'
 });
 test('crafted station exists physically, repairs hull and spends one cell',()=>{
  const g=createGame();g.inventory={metal:50,polymer:50,circuit:50,cell:50};assert.ok(craft(g,'repairDock'));assert.equal(g.ship.objects.length,0);assert.ok(placeFromInventory(g,'repairDock',0,0));assert.equal(g.ship.objects.length,1);
- const o=g.ship.objects[0];Object.assign(g.player,{x:o.x+70,y:standing,z:o.z});moveWithCollisions(g,{x:-70,y:0,z:0});assert.equal(g.player.x,o.x+24);
+ const o=g.ship.objects[0];Object.assign(g.player,{x:o.x+70,y:standing,z:o.z});moveWithCollisions(g,{x:-70,y:0,z:0});assert.equal(g.player.x,o.x+16);
  g.ship.hp=50;const cells=g.inventory.cell;tick(g,{x:0,y:0,z:0},.02);assert.equal(g.ship.hp,80);assert.equal(g.inventory.cell,cells-1);
 });
 test('blaster requires crafting and ammunition, hits in 3D and enforces cooldown',()=>{
@@ -41,4 +41,3 @@ test('blaster requires crafting and ammunition, hits in 3D and enforces cooldown
  Object.assign(g.enemy,target);assert.ok(shoot(g,target));assert.equal(g.enemy.hp,50);assert.equal(g.inventory.cell,1);assert.equal(shoot(g,target),false);
  g.cooldown=0;assert.ok(shoot(g,target));assert.equal(g.inventory.cell,0);g.cooldown=0;assert.equal(shoot(g,target),false);
 });
-

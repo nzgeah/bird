@@ -64,4 +64,3 @@ test('moving orbit is frame-rate independent and stops at end state',()=>{
  for(const axis of ['x','y','z'])assert.ok(Math.abs(a.ship[axis]-b.ship[axis])<1e-7);
  const before={...a.ship};a.over=true;tick(a,{},.03);assert.deepEqual(a.ship,before);
 });
-

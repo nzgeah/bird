@@ -26,6 +26,7 @@ function buildMesh(type,platform){
   const equipment=equipmentMesh(type);if(equipment)return equipment;
   if(type==='battery')return batteryMesh();
   const group=new THREE.Group();
+  if(['engine','cargoPod','repairDock','solar','beacon','antenna'].includes(type))group.scale.setScalar(.5);
   const parts=buildingParts(type);
   if(parts){for(const [w,h,d,x,y,z] of parts)box(group,[w,h,d],[x,y,z],type==='fence'?'#a28c65':'#536b75');return group;}
   if(type==='wall'||type==='ceiling'){
@@ -95,7 +96,7 @@ function makeDismantleVisual(group){
 function resourceMesh(resource,templates){
   if(resource.itemKey==='hook')return hookItem();
   if(resource.itemKey==='hull'&&templates?.hull){const mesh=templates.hull.clone(true);mesh.scale.multiplyScalar(18/28);mesh.userData.sharedAsset=true;return mesh;}
-  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.setScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
+  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.multiplyScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
   resourceKey(resource);
   const template=templates?.[resource.type==='metal'?resource.variant:resource.type];
   if(template){const mesh=template.clone(true);mesh.userData.sharedAsset=true;return mesh;}
@@ -259,13 +260,13 @@ export class SpaceView{
   showPlacement(game,candidate){
     if(!candidate){if(this.ghost)this.ghost.visible=false;return;}
     if(this.ghostType!==candidate.type){
-      if(this.ghost){this.scene.remove(this.ghost);this.ghost.traverse(n=>{if(n.isMesh)n.material.dispose();});}
-      this.ghost=buildMesh(candidate.type,this.platformTemplate);this.ghostType=candidate.type;
+      if(this.ghost){this.scene.remove(this.ghost);this.ghost.traverse(n=>{if(n.isMesh||n.isLine)n.material.dispose();if(n.isLine)n.geometry.dispose();});}
+      this.ghost=new THREE.Group();this.ghost.add(buildMesh(candidate.type,this.platformTemplate));this.ghostType=candidate.type;
       this.ghost.traverse(n=>{if(n.isMesh)n.material=new THREE.MeshBasicMaterial({color:0x55ff99,transparent:true,opacity:.38,depthWrite:false,side:THREE.DoubleSide});});
-      const spec=BUILDABLES[candidate.type];const outline=new THREE.Mesh(new THREE.BoxGeometry(spec.width,.4,spec.depth),new THREE.MeshBasicMaterial({color:0x55ff99,wireframe:true,transparent:true,opacity:.95}));outline.position.y=.6;outline.userData.previewOutline=true;this.ghost.add(outline);this.scene.add(this.ghost);
+      const spec=BUILDABLES[candidate.type],w=spec.width/2,d=spec.depth/2;const outline=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-w,.6,-d),new THREE.Vector3(w,.6,-d),new THREE.Vector3(w,.6,d),new THREE.Vector3(-w,.6,d)]),new THREE.LineBasicMaterial({color:0x55ff99,transparent:true,opacity:.85}));outline.userData.previewOutline=true;this.ghost.add(outline);this.scene.add(this.ghost);
     }
     this.ghost.visible=Number.isFinite(candidate.x)&&Number.isFinite(candidate.z);
-    if(this.ghost.visible){this.ghost.position.set(game.ship.x+candidate.x,game.ship.y+DECK_TOP+.15,game.ship.z+candidate.z);this.ghost.rotation.y=candidate.rotation;this.ghost.traverse(n=>{if(n.isMesh)n.material.color.set(candidate.valid?0x55ff99:0xff4058);});}
+    if(this.ghost.visible){this.ghost.position.set(game.ship.x+candidate.x,game.ship.y+DECK_TOP+.15,game.ship.z+candidate.z);this.ghost.rotation.y=candidate.rotation;this.ghost.traverse(n=>{if(n.isMesh||n.isLine)n.material.color.set(candidate.valid?0x55ff99:0xff4058);});}
   }
   // Raycasts against actual 3D debris volumes, never a flat collection plane.
   aim(clientX,clientY,game){

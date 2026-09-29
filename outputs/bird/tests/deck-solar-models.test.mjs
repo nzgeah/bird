@@ -19,5 +19,5 @@ test('solar GLB loads and fits existing placement and collision bounds',async()=
  const scene=await parse(new URL('../equipment/solar.glb',import.meta.url));let cells=0;
  scene.traverse(n=>{if(n.name.startsWith('PV_cell'))cells++;if(n.isMesh)for(const v of n.geometry.attributes.position.array)assert(Number.isFinite(v));});assert.equal(cells,36);
  setEquipmentTemplates({solar:scene});const bounds=new T.Box3().setFromObject(equipmentMesh('solar')),size=bounds.getSize(new T.Vector3());
- assert(size.x<=96.001&&size.y<=22.001&&size.z<=26.001);assert(Math.abs(bounds.min.y)<1e-5);
+ assert(size.x<=48.001&&size.y<=11.001&&size.z<=13.001);assert(Math.abs(bounds.min.y)<1e-5);
 });

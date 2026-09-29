@@ -19,4 +19,3 @@ test('safe deck prevents capture; either weapon breaks capture',()=>{
   updateGrab(g,.01);assert.equal(g.enemy.grab,null);
  }
 });
-

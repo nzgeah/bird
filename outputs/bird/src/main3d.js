@@ -102,7 +102,7 @@ function updateUI(){
   for(const button of document.querySelectorAll('[data-tool]')){button.disabled=button.dataset.tool!=='hook'&&!game.upgrades[button.dataset.tool];button.classList.toggle('selected',button.dataset.tool===game.tool);}
 
   text('#hullText',Math.max(0,Math.round(game.ship.hp))+' / '+game.ship.max);
-  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const energy=Math.ceil(game.energy),charging=onRaft(game)&&energy<100;text('#power-status',charging?`DOCK POWER · CHARGING · ${energy}%`:`UNIT–07 · PWR ${energy}%`);$('#power-fill').style.width=Math.max(0,Math.min(100,game.energy))+'%';const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
+  text('#quick-health','КОРПУС '+Math.max(0,Math.round(game.ship.hp))+'/'+game.ship.max);text('#log',game.log);const energy=Math.ceil(game.energy),charging=!!game.energySource&&energy<100;text('#power-status',charging?`DOCK POWER · CHARGING · ${energy}%`:`UNIT–07 · PWR ${energy}%`);$('#power-fill').style.width=Math.max(0,Math.min(100,game.energy))+'%';const v=game.player.velocity??{x:0,y:0,z:0};text('#physics-status', (onRaft(game)?'ОПОРА / МАГНИТНЫЕ БОТИНКИ':'СВОБОДНОЕ ПАДЕНИЕ / ТЯГА')+' · '+Math.hypot(v.x,v.y,v.z).toFixed(1)+' м/с · g '+GRAVITY.toFixed(2)+' м/с²');text('#telemetry',`X ${Math.round(game.player.x)} / Y ${Math.round(game.player.y)} / Z ${Math.round(game.player.z)} · T+${Math.floor(game.time)} с`);
   text('#mode',!started?'3D / WEBGL':(paused||menuOpen)?'СИМУЛЯЦИЯ ПРИОСТАНОВЛЕНА':onRaft(game)?'НА ПЛОТУ · БЕЗОПАСНО':game.time<25?'ТИХАЯ ОРБИТА':'ОБНАРУЖЕН УБОРЩИК');
   text('#objective',game.archive?'Архив получен. Вернитесь к BIRD и соберите навигационный маяк.':'Извлеките архив станции «Вектор». Соберите навигационный маяк.');
   text('#workshop',(onRaft(game)||distance(game.player,game.ship)<180)?'Палуба '+game.ship.modules+' секц. · крафт доступен':'Вне корабля · F: вернуться к мастерской');
@@ -135,7 +135,6 @@ function pause(){
 $('#pause').onclick=pause;
 $('#resume-game').onclick=pause;
 $('#back-to-menu').onclick=showMainMenu;
-function updateRaftPower(dt){const ship=game.ship,battery=ship.battery?.installed,solar=ship.objects.some(o=>o.type==='solar');if(!battery){ship.power=0;game.scanner.active=false;game.scanner.signal=false;return;}let delta=0;if(game.engineThrust>.01)delta-=1.5*dt;if(solar&&onRaft(game))delta+=.9*dt;if(distance(game.player,game.station)<145)delta+=3*dt;ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));if(ship.power<=0&&game.engineThrust>0)game.log='Плот обесточен: двигатель отключён';}
 function updateScanner(dt){const s=game.scanner;if(!s||!s.active||!game.ship.objects.some(o=>o.type==='antenna')||!onRaft(game)){if(s)s.signal=false;return;}s.timer-=dt;s.ping=Math.max(0,s.ping-dt);if(s.timer<=0){s.timer=5.5;s.ping=1.2;if(game.ship.power>=2){game.ship.power-=2;s.signal=distance(game.player,game.station)<=800;game.log=s.signal?'Сканер: обнаружен сигнал станции':'Сканер: сигнал не найден в радиусе';}else{s.active=false;s.signal=false;game.log='Сканер отключён: нет энергии плота';}}}
 function updatePowerVision(){
  const energy=game.energy??100,shutdown=energy<=0||game.time<(game.energyShutdownUntil??0);
@@ -161,10 +160,10 @@ function frame(now){
     scannerKeyHeld=scannerKey;
     if(!placement)structure=view.structureAim(game);
     updateDismantle(game,structure,!placement&&controls.primary,dt);
-    updateRaftPower(dt);updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
+    updateScanner(dt);const flightInput=controls.input();tick(game,{...flightInput,pilot:game.engineControl?(game.ship.power>0?flightInput:{}):null,interact:!game.engineControl&&!placement&&controls.keys.has('KeyE')},dt);
     if(game.over||game.won)showOutcome();
   }else game.dismantle=null;
-  damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won);
+  damageVision.update(game.player.hp,game.time,active()?dt:0,started&&!paused&&!menuOpen&&!game.over&&!game.won,game.player.maxHp);
   view.render(game,controls,dt,active()?placement:null);text('#tool-status','1 КРЮК · 2 РЕЗАК · 3 БЛАСТЕР | '+({hook:'КРЮК',pulse:'РЕЗАК',blaster:'БЛАСТЕР · ЯЧЕЕК '+game.inventory.cell}[game.tool]));
   if(active()&&!placement){
     const aim=view.aim(innerWidth/2,innerHeight/2,game);structure=view.structureAim(game);

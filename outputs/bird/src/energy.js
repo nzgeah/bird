@@ -1,15 +1,36 @@
-import {onRaft,DECK_TOP,EYE_HEIGHT} from './raft.js';
-export const MAX_ENERGY=100, LOW_ENERGY=30, CRITICAL_ENERGY=15, EMERGENCY_ENERGY=5;
+import {onRaft} from './raft.js';
+export const MAX_ENERGY=100, MAX_HEALTH=100, MAX_RAFT_POWER=500;
+export const LOW_ENERGY=30, CRITICAL_ENERGY=15, EMERGENCY_ENERGY=5;
+export const SOLAR_GENERATION=.9, ROBOT_CHARGE_RATE=6;
+const nearStation=(g,p)=>g.station&&Math.hypot(p.x-g.station.x,p.y-g.station.y,p.z-g.station.z)<145;
 export function consumeEnergy(g,amount){if((g.energy??MAX_ENERGY)<amount){g.log='Питание нестабильно: недостаточно энергии';return false;}g.energy=Math.max(0,g.energy-amount);return true;}
 export function updateEnergy(g,input,dt){
  g.energy??=MAX_ENERGY;
- if(g.energy<=0)g.energyDepleted=true;
- if(g.energyDepleted){g.player.hp=Math.max(0,(g.player.hp??100)-dt*8);g.energyWarning=3;return 'depleted';}
- if(onRaft(g)){g.energy=Math.min(MAX_ENERGY,g.energy+dt*(g.upgrades.solar?12:6));if(g.energy>=MAX_ENERGY)g.energyWarning=0;return 'charging';}
- const moving=Math.hypot(input?.x??0,input?.y??0,input?.z??0)>.05,drain=.35+(moving?.18:0)+(input?.sprint?.65:0);
- g.energy=Math.max(0,g.energy-drain*dt);
+ const moving=Math.hypot(input?.x??0,input?.y??0,input?.z??0)>.05;
+ const demand=(.7+(moving?.36:0)+(input?.sprint?1.3:0))*dt;
+ let supplied=0,status='draining';
+ if(nearStation(g,g.player)){
+  supplied=Math.min(demand+MAX_ENERGY-g.energy,12*dt);status='station-charging';
+ }else if(onRaft(g)&&g.ship.battery?.installed&&g.ship.power>0){
+  // Every unit powering or recharging the robot is withdrawn from the raft.
+  supplied=Math.min(g.ship.power,demand+Math.min(MAX_ENERGY-g.energy,ROBOT_CHARGE_RATE*dt));
+  g.ship.power-=supplied;status='raft-charging';
+ }
+ g.energy=Math.max(0,Math.min(MAX_ENERGY,g.energy+supplied-demand));
+ g.energyDepleted=g.energy<=0;g.energySource=supplied>0?status:null;
  const warning=g.energy<=EMERGENCY_ENERGY?3:g.energy<=CRITICAL_ENERGY?2:g.energy<=LOW_ENERGY?1:0;
- if(warning>(g.energyWarning??0)){g.energyWarning=warning;g.log=warning===1?'Питание нестабильно':warning===2?'Резервное питание':'Аварийный остаток энергии';}
- if(g.energy>0)return 'draining';
- g.energyDepleted=true;g.player.hp=Math.max(0,(g.player.hp??100)-dt*8);g.energyWarning=3;g.log='Энергия робота полностью разряжена';return 'depleted';
+ if(warning>(g.energyWarning??0))g.log=warning===1?'Питание нестабильно':warning===2?'Резервное питание':'Аварийный остаток энергии';
+ g.energyWarning=warning;
+ if(g.energyDepleted){g.player.hp=Math.max(0,(g.player.hp??MAX_HEALTH)-dt*16);g.log='Энергия робота полностью разряжена';return 'depleted';}
+ return status;
+}
+export function updateRaftPower(g,dt){
+ const ship=g.ship;
+ if(!ship.battery?.installed){ship.power=0;if(g.scanner){g.scanner.active=false;g.scanner.signal=false;}return;}
+ let delta=0;
+ if(g.engineThrust>.01)delta-=1.5*dt;
+ if(ship.objects.some(o=>o.type==='solar'))delta+=SOLAR_GENERATION*dt;
+ if(nearStation(g,ship))delta+=3*dt;
+ ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));
+ if(ship.power<=0&&g.engineThrust>0)g.log='Плот обесточен: двигатель отключён';
 }
