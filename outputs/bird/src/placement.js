@@ -91,22 +91,28 @@ function detachObject(g,object){
   ejectBuiltItem(g,type,position);
 }
 export function canDismantle(g,target){
+ if(target?.owner&&target.owner!==g.ship)return canDismantle({...g,ship:target.owner},{...target,owner:undefined});
   if(!target?.entity)return {valid:false,reason:'Наведитесь на постройку'};
   const position=targetPosition(g,target);
   if(Math.hypot(g.player.x-position.x,g.player.y-position.y,g.player.z-position.z)>BUILD_REACH)return {valid:false,reason:'Подойдите ближе'};
   if(target.kind==='object'){
     if(target.entity===g.ship.battery)return g.ship.battery.installed?{valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'}:{valid:false,reason:'Батарея уже разобрана'};
     if(!g.ship.objects.includes(target.entity))return {valid:false,reason:'Постройка уже разобрана'};
-    return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
+    return {valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'};
   }
   const tile=target.entity;
   if(!g.ship.tiles.includes(tile))return {valid:false,reason:'Секция уже разобрана'};
   const px=g.player.x-g.ship.x,pz=g.player.z-g.ship.z;
   if(Math.abs(px-tile.x*TILE_SIZE)<TILE_SIZE/2+8&&Math.abs(pz-tile.z*TILE_SIZE)<TILE_SIZE/2+8)return {valid:false,reason:'Сойдите с этой секции'};
-  if(!deckStaysConnected(g.ship.tiles.filter(t=>t!==tile)))return {valid:false,reason:'Нельзя разделить палубу'};
-  return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
+  if(g.ship.kind!=='cargoWreck'&&!deckStaysConnected(g.ship.tiles.filter(t=>t!==tile)))return {valid:false,reason:'Нельзя разделить палубу'};
+  return {valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'};
 }
 export function updateDismantle(g,target,held,dt){
+ if(target?.owner&&target.owner!==g.ship){
+  const originalShip=g.ship,originalUpgrades=g.upgrades;
+  try{g.ship=target.owner;g.upgrades=target.owner.upgrades??={};return updateDismantle(g,{...target,owner:undefined},held,dt);}
+  finally{g.ship=originalShip;g.upgrades=originalUpgrades;}
+ }
   const check=canDismantle(g,target);
   if(!held||!check.valid){
     g.dismantle=null;

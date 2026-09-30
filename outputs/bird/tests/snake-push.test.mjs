@@ -11,7 +11,7 @@ test('loose crafted equipment is pushed instead of eaten',()=>{
  updateEnemy(g,.04);assert(g.resources.includes(item));assert(Math.hypot(item.vx??0,item.vy??0,item.vz??0)>0);
 });
 test('station receives a finite push and continues drifting after contact',()=>{
- const g=createGame();Object.assign(g.enemy,{x:g.station.x+90,y:g.station.y,z:g.station.z,segments:[]});
+ const g=createGame();g.station={x:260,y:210,z:-650};Object.assign(g.enemy,{x:g.station.x+90,y:g.station.y,z:g.station.z,segments:[]});
  g.enemy.obstacles=snakeObstacles(g);resolveSnakeBody(g.enemy);
  const before={...g.station};pushSnakeContacts(g,.04);
  assert(g.station.pushVelocity);assert(Math.hypot(g.station.x-before.x,g.station.y-before.y,g.station.z-before.z)>0);
@@ -27,7 +27,7 @@ test('multiple body contacts give one impulse per rigid object',()=>{
  assert.deepEqual(run(1),run(100));
 });
 test('snake makes progress beside station after starting with overlapping body bounds',()=>{
- const g=createGame();g.time=40;g.player.x=2000;g.resources=[];g.enemy.nextRaftAttack=Infinity;
+ const g=createGame();g.station={x:260,y:210,z:-650};g.time=40;g.player.x=2000;g.resources=[];g.enemy.nextRaftAttack=Infinity;
  Object.assign(g.enemy,{x:g.station.x+90,y:g.station.y,z:g.station.z,segments:[]});
  const before={x:g.enemy.x,y:g.enemy.y,z:g.enemy.z};
  for(let i=0;i<300;i++){g.time+=1/60;updateEnemy(g,1/60);}

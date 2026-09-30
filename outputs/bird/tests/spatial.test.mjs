@@ -59,7 +59,7 @@ test('enemy, station, workshop and pulse all respect depth',()=>{
   g.inventory={metal:99,polymer:99,circuit:99,cell:99};g.player.z=600;
   assert.equal(canCraft(g,RECIPES[0]),false);
   Object.assign(g.player,{x:g.station.x,y:g.station.y,z:g.station.z+300});explore(g,true,1);
-  assert.equal(g.station.stock,16);
+  assert.equal(g.station.stock,0);assert.equal(g.archive,false);
   g.upgrades.pulse=true;Object.assign(g.player,{x:g.enemy.x,y:g.enemy.y,z:g.enemy.z+300});attack(g);assert.equal(g.enemy.hp,100);
 });
 

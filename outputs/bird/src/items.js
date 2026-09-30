@@ -1,6 +1,11 @@
 import {SCRAP_VARIANTS} from './variants.js';
 
 export const BUILDABLES={
+  slope:{name:'Наклонная панель',width:60,depth:60,height:60},
+  corner:{name:'Угловая секция',width:60,depth:60,height:60},
+  door:{name:'Дверь с проёмом',width:60,depth:6,height:60},
+  glass:{name:'Стеклянная секция',width:60,depth:6,height:60},
+  damagedPanel:{name:'Повреждённая панель',width:60,depth:6,height:60},
   hull:{name:'Секция палубы',width:60,depth:60,height:16},
   wall:{name:'Стена',width:60,depth:6,height:60},
   windowWall:{name:'Стена с окном',width:60,depth:6,height:60},

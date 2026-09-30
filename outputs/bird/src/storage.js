@@ -7,11 +7,11 @@ export const STORAGE_TYPES=['metal','polymer','circuit','cell'];
 export const storedTotal=object=>Object.values(object?.storage??{}).reduce((sum,count)=>sum+count,0);
 export function usableStorage(g,target){
  const object=target?.kind==='object'&&target.entity?.type==='cargoPod'?target.entity:null;
- if(!object||!g.ship.objects.includes(object))return null;
- return distance(g.player,{x:g.ship.x+object.x,y:g.ship.y+22,z:g.ship.z+object.z})<=STORAGE_REACH?object:null;
+ const owner=target?.owner??g.ship;if(!object||!owner.objects.includes(object))return null;
+ return distance(g.player,{x:owner.x+object.x,y:owner.y+22,z:owner.z+object.z})<=STORAGE_REACH?object:null;
 }
 export function transferStorage(g,object,type,amount){
- if(!type||!g.ship.objects.includes(object)||!Number.isInteger(amount)||!amount)return 0;
+ if(!type||!(g.ship.objects.includes(object)||g.station?.objects?.includes(object))||!Number.isInteger(amount)||!amount)return 0;
  object.storage??=Object.fromEntries(STORAGE_TYPES.map(key=>[key,0]));
  if(amount>0){
    const moved=Math.min(amount,cargoValues(g)[type]??0,STORAGE_CAPACITY-storedTotal(object));

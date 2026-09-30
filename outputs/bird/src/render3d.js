@@ -1,4 +1,5 @@
 import {buildingParts,partBounds,WALL_TYPES} from './building-parts.js';
+import {compactStaticModel} from './compact-model.js';
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
 import {objectBounds,validatePlacement,BUILD_REACH} from './placement.js';
 import * as THREE from '../vendor/three.module.js';
@@ -22,13 +23,30 @@ function box(parent,dimensions,position,color,glow=false){
   const mesh=new THREE.Mesh(cube,material(color,glow));
   mesh.scale.set(...dimensions);mesh.position.set(...position);parent.add(mesh);return mesh;
 }
-function buildMesh(type,platform){
+function buildMesh(type,platform,object={}){
   const equipment=equipmentMesh(type);if(equipment)return equipment;
   if(type==='battery')return batteryMesh();
   const group=new THREE.Group();
+  if(type==='slope'||type==='corner'){
+    let geometry;
+    if(type==='slope'){
+      geometry=new THREE.BoxGeometry(60,6,60);const positions=geometry.attributes.position;
+      for(let i=0;i<positions.count;i++)positions.setY(i,positions.getY(i)+3+(positions.getZ(i)+30)*.9);
+    }else{
+      const vertices=[[30,0,-30],[30,54,30],[-30,54,30],[30,6,-30],[30,60,30],[-30,60,30]];
+      geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices.flat(),3));
+      geometry.setIndex([0,2,1,3,4,5,0,1,4,0,4,3,1,2,5,1,5,4,2,0,3,2,3,5]);
+    }
+    geometry.computeVertexNormals();group.add(new THREE.Mesh(geometry,material('#536b75')));return group;
+  }
   if(['engine','cargoPod','repairDock','solar','beacon','antenna'].includes(type))group.scale.setScalar(.5);
-  const parts=buildingParts(type);
-  if(parts){for(const [w,h,d,x,y,z] of parts)box(group,[w,h,d],[x,y,z],type==='fence'?'#a28c65':'#536b75');return group;}
+  const parts=buildingParts(type,object.open);
+  if(parts){for(const [w,h,d,x,y,z] of parts){
+ const mesh=box(group,[w,h,d],[x,y,z],type==='damagedPanel'?'#936448':type==='door'?'#c79451':type==='fence'?'#a28c65':'#536b75');
+ if(type==='glass'&&d===2){mesh.material=new THREE.MeshStandardMaterial({color:'#79c8de',transparent:true,opacity:.28,metalness:.3,roughness:.15,depthWrite:false});}
+ }
+ if(type==='door')box(group,[8,3,1],[17,32,4],object.locked?'#ed5844':object.open?'#70d9ab':'#e6b56f',true);
+ return group;}
   if(type==='wall'||type==='ceiling'){
     const wall=type==='wall',y=wall?40:84;
     box(group,wall?[80,80,8]:[80,8,80],[0,y,0],'#536b75');
@@ -139,7 +157,7 @@ export class SpaceView{
     this.scene.add(new THREE.HemisphereLight('#badcf6','#28394c',2.3));
     const sun=new THREE.DirectionalLight('#fff1d4',3.2);sun.position.set(800,1100,500);this.scene.add(sun);
     const rim=new THREE.DirectionalLight('#74b9ff',2);rim.position.set(-900,100,-1000);this.scene.add(rim);
-    this.robot=new THREE.Group();this.ship=new THREE.Group();this.station=makeStation();this.scene.add(this.robot,this.ship,this.station);
+    this.robot=new THREE.Group();this.ship=new THREE.Group();this.station=new THREE.Group();this.scene.add(this.robot,this.ship,this.station);
     this.head=new THREE.Group();box(this.head,[30,24,32],[0,0,0],'#946f61');box(this.head,[24,6,3],[0,0,-18],'#ff7159',true);this.scene.add(this.head);
     this.segments=Array.from({length:18},()=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(21,19,21),material('#695b59'));this.scene.add(mesh);return mesh;});
     this.resourceMeshes=new Map();this.structureMeshes=new Map();this.raycaster=new THREE.Raycaster();this.pointer=new THREE.Vector2();
@@ -176,6 +194,7 @@ export class SpaceView{
       this.hookWeapon=magneticModel('magnetic-hook',4.2);this.hookWeapon.rotation.y=Math.PI;this.hookWeapon.position.set(3,-2.5,-7);this.camera.add(this.hookWeapon);
       this.scene.remove(this.hook);this.hook.geometry.dispose();this.hook=magneticModel('attraction-orb',14);this.scene.add(this.hook);
       this.platformTemplate=assets.platform;
+      this.wreckPlatformTemplate=compactStaticModel(assets.platform);
       this.floatingTemplates=assets.floating;
       for(const mesh of this.resourceMeshes.values()){this.scene.remove(mesh);mesh.geometry?.dispose();}
       this.resourceMeshes.clear();
@@ -184,7 +203,7 @@ export class SpaceView{
       this.head=assets.snake.head;this.segments=assets.snake.segments;
       this.scene.add(this.head,...this.segments);this.importedSnake=true;
       this.enemyVisualInitialized=false;
-      this.moduleSignature='';
+      this.moduleSignature='';this.wreckSignature='';
       return assets;
     });
   }
@@ -205,8 +224,31 @@ export class SpaceView{
       }
       makeDismantleVisual(group);this.ship.add(group);this.structureMeshes.set(tile,group);
     }
-    for(const o of [...game.ship.objects,...(game.ship.battery?.installed?[game.ship.battery]:[])]){const mesh=buildMesh(o.type,this.platformTemplate);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;makeDismantleVisual(mesh);this.ship.add(mesh);this.structureMeshes.set(o,mesh);}
-  }  syncResources(game){
+    for(const o of [...game.ship.objects,...(game.ship.battery?.installed?[game.ship.battery]:[])]){const mesh=buildMesh(o.type,this.platformTemplate,o);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;makeDismantleVisual(mesh);this.ship.add(mesh);this.structureMeshes.set(o,mesh);}
+  }
+  rebuildWreck(game){
+   const w=game.station;if(w?.kind!=='cargoWreck')return;
+   const signature=JSON.stringify([w.tiles,w.objects,w.battery]);
+   if(this.wreckSignature!==signature){
+    for(const o of this.wreckMeshes?.keys()??[])this.structureMeshes.delete(o);
+    this.wreckSignature=signature;this.station.clear();this.wreckMeshes=new Map();
+    for(const tile of w.tiles){
+     const mesh=buildMesh('hull',this.wreckPlatformTemplate);mesh.position.set(tile.x*TILE,DECK_TOP,tile.z*TILE);
+     makeDismantleVisual(mesh);this.station.add(mesh);this.wreckMeshes.set(tile,mesh);
+    }
+    for(const o of [...w.objects,...(w.battery?.installed?[w.battery]:[])]){
+     const mesh=buildMesh(o.type,this.platformTemplate,o);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;
+     makeDismantleVisual(mesh);this.station.add(mesh);this.wreckMeshes.set(o,mesh);
+    }
+    for(const z of [-205,0,235]){
+     box(this.station,[30,2,3],[0,66,z],'#7ccdd0',true);
+    }
+    box(this.station,[4,40,4],[145,30,-32],'#ebad53',true);
+    box(this.station,[4,40,4],[145,30,92],'#ebad53',true);
+   }
+   for(const [o,mesh] of this.wreckMeshes)this.structureMeshes.set(o,mesh);
+  }
+  syncResources(game){
     const visibleResources=game.hook?.resource?[...game.resources,game.hook.resource]:game.resources;
       const live=new Set(visibleResources);
       for(const [resource,mesh] of this.resourceMeshes)if(!live.has(resource)){this.scene.remove(mesh);if(!mesh.userData.sharedAsset)mesh.geometry?.dispose();this.resourceMeshes.delete(resource);}
@@ -281,23 +323,18 @@ export class SpaceView{
   structureAim(game){
     this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
     let target=null,depth=Infinity;
-    const consider=(kind,entity,box)=>{
-      const hit=this.raycaster.ray.intersectBox(box,new THREE.Vector3());
-      if(!hit)return;
-      const d=this.camera.position.distanceTo(hit);
-      if(d<=BUILD_REACH&&d<depth){depth=d;target={kind,entity};}
+    const consider=(owner,kind,entity,b)=>{
+      const hit=this.raycaster.ray.intersectBox(b,new THREE.Vector3());if(!hit)return;
+      const d=this.camera.position.distanceTo(hit);if(d<=BUILD_REACH&&d<depth){depth=d;target={owner,kind,entity};}
     };
-    for(const object of game.ship.objects)for(const b of partBounds(object)??[objectBounds(object)]){
-      consider('object',object,new THREE.Box3(
-        new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP+b.bottom,game.ship.z+b.minZ),
-        new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+b.height,game.ship.z+b.maxZ)
-      ));
-    }
-    const battery=game.ship.battery?.installed?game.ship.battery:null;
-    if(battery)for(const b of partBounds(battery)??[objectBounds(battery)])consider('object',battery,new THREE.Box3(new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP+b.bottom,game.ship.z+b.minZ),new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+b.height,game.ship.z+b.maxZ)));
-    for(const tile of game.ship.tiles){
-      const x=game.ship.x+tile.x*TILE,z=game.ship.z+tile.z*TILE;
-      consider('tile',tile,new THREE.Box3(new THREE.Vector3(x-TILE/2,game.ship.y-8,z-TILE/2),new THREE.Vector3(x+TILE/2,game.ship.y+DECK_TOP+.5,z+TILE/2)));
+    for(const owner of [game.ship,...(game.station?.kind==='cargoWreck'?[game.station]:[])]){
+     for(const o of [...owner.objects,...(owner.battery?.installed?[owner.battery]:[])])
+      for(const b of partBounds(o)??[objectBounds(o)])consider(owner,'object',o,new THREE.Box3(
+       new THREE.Vector3(owner.x+b.minX,owner.y+DECK_TOP+b.bottom,owner.z+b.minZ),
+       new THREE.Vector3(owner.x+b.maxX,owner.y+DECK_TOP+b.height,owner.z+b.maxZ)));
+     for(const t of owner.tiles)consider(owner,'tile',t,new THREE.Box3(
+      new THREE.Vector3(owner.x+t.x*TILE-TILE/2,owner.y-8,owner.z+t.z*TILE-TILE/2),
+      new THREE.Vector3(owner.x+t.x*TILE+TILE/2,owner.y+DECK_TOP,owner.z+t.z*TILE+TILE/2)));
     }
     return target;
   }
@@ -325,7 +362,7 @@ export class SpaceView{
       if(Math.abs(offset)>600)dust.array[k]-=Math.floor((offset+600)/1200)*1200;
     }
     dust.needsUpdate=true;
-    this.rebuildShip(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
+    this.rebuildShip(game);this.rebuildWreck(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
     const forward=flightVector(look.yaw,look.pitch,1,0,0),position=this.robot.position;
     this.camera.position.copy(position);
     this.camera.lookAt(position.clone().add(new THREE.Vector3(forward.x,forward.y,forward.z)));
@@ -344,7 +381,7 @@ export class SpaceView{
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
     for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryBar!==undefined){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100))),level=node.userData.batteryBar+1,lit=level<=Math.ceil(power*5),color=power<=.05?'#e34b4b':power<=.2?'#e7b649':'#73dfca';node.visible=true;node.material.color.set(lit?color:'#26383d');node.material.emissive.set(lit?color:'#26383d');node.material.emissiveIntensity=lit?.45+power:0;}});}
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
-    for(const [object,mesh] of this.structureMeshes)if(object.type==='battery')updateBatteryDisplay(mesh,game.ship.power??0,game.ship.maxPower??100,game.time);
+    for(const [object,mesh] of this.structureMeshes)if(object.type==='battery')updateBatteryDisplay(mesh,object===game.station.battery?game.station.power:game.ship.power,object===game.station.battery?game.station.maxPower:game.ship.maxPower,game.time);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();
     if(!this.previousEnemy||movement.length()>200){this.enemyForward.copy(this.ship.position).sub(this.head.position).normalize();}
     else if(movement.lengthSq()>1e-7)this.enemyForward.copy(movement).normalize();
