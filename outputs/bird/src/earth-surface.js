@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import {EARTH_DIRECTION,EARTH_DISTANCE,EARTH_RADIUS} from './orbit-sky.js';
+import {orbitalSky,EARTH_DIRECTION,EARTH_DISTANCE,EARTH_RADIUS} from './orbit-sky.js';
 
 export function geographicNormal(latitude,longitude){
  const lat=latitude*Math.PI/180,phi=(longitude+180)*Math.PI/180;
@@ -18,16 +18,26 @@ export function northAmericaOrientation(){
  const rotation=new THREE.Matrix4().makeBasis(east,north,normal).multiply(new THREE.Matrix4().makeBasis(localEast,localNorth,local).transpose());
  return new THREE.Quaternion().setFromRotationMatrix(rotation);
 }
-export function earthSurfaceMaterial(){
+export function earthSurfaceMaterial(nightMap){
  const material=new THREE.MeshStandardMaterial({roughness:.8,metalness:0});
  material.onBeforeCompile=shader=>{
+  shader.uniforms.earthSun={value:new THREE.Vector3().copy(orbitalSky().sun)};
+  shader.uniforms.earthNightMap={value:nightMap};
+  shader.vertexShader='varying vec3 earthNormal; varying vec2 earthUV;\n'+shader.vertexShader;
+  shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+   earthNormal=mat3(modelMatrix)*normal; earthUV=uv;`);
+  shader.fragmentShader='uniform vec3 earthSun; uniform sampler2D earthNightMap; varying vec3 earthNormal; varying vec2 earthUV;\n'+shader.fragmentShader;
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
    float ocean=smoothstep(0.015,0.10,diffuseColor.b-diffuseColor.r)*smoothstep(0.005,0.06,diffuseColor.b-diffuseColor.g);
    diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(0.35,0.55,0.72),ocean);
    float gray=dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722));
    diffuseColor.rgb=mix(vec3(gray),diffuseColor.rgb,0.85);`);
+  shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+   float night=1.0-smoothstep(-0.08,0.08,dot(normalize(earthNormal),earthSun));
+   float cloudCover=smoothstep(0.3,0.75,min(diffuseColor.r,min(diffuseColor.g,diffuseColor.b)));
+   totalEmissiveRadiance+=texture2D(earthNightMap,earthUV).rgb*night*(1.0-cloudCover*0.85)*1.4;`);
  };
- material.customProgramCacheKey=()=> 'earth-surface-v1';return material;
+ material.customProgramCacheKey=()=> 'earth-surface-v2';return material;
 }
 export function earthCloudMaterial(texture){
  const material=new THREE.MeshStandardMaterial({map:texture,roughness:1,transparent:true,depthWrite:false});
