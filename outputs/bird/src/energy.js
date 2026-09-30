@@ -1,5 +1,4 @@
 import {onRaft} from './raft.js';
-import {orbitalSky} from './orbit-sky.js';
 export const MAX_ENERGY=100, MAX_HEALTH=100, MAX_RAFT_POWER=500;
 export const LOW_ENERGY=30, CRITICAL_ENERGY=15, EMERGENCY_ENERGY=5;
 export const SOLAR_GENERATION=.9, ROBOT_CHARGE_RATE=6;
@@ -33,7 +32,7 @@ export function updateRaftPower(g,dt){
  if(!ship.battery?.installed){ship.power=0;if(g.scanner){g.scanner.active=false;g.scanner.signal=false;}return;}
  let delta=0;
  if(g.engineThrust>.01)delta-=1.5*dt;
- if(ship.objects.some(o=>o.type==='solar'))delta+=SOLAR_GENERATION*orbitalSky(g.time).sunlight*dt;
+ if(ship.objects.some(o=>o.type==='solar'))delta+=SOLAR_GENERATION*dt;
  if(g.station?.kind!=='cargoWreck'&&nearStation(g,ship))delta+=3*dt;
  ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));
  if(ship.power<=0&&g.engineThrust>0)g.log='Плот обесточен: двигатель отключён';
