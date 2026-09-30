@@ -12,18 +12,28 @@ const cities=[
  [36.16,-86.78,.5],[35.15,-90.05,.4],[29.95,-90.07,.5],[39.74,-104.99,.7],
  [34.05,-118.24,1.2],[37.77,-122.42,.85],[47.61,-122.33,.7],[49.28,-123.12,.6],
  [33.45,-112.07,.6],[36.17,-115.14,.45],[32.72,-117.16,.65],[40.76,-111.89,.45],
- [19.43,-99.13,1.1],[25.69,-100.32,.65],[20.67,-103.35,.65],[23.11,-82.37,.45]
+ [19.43,-99.13,1.1],[25.69,-100.32,.65],[20.67,-103.35,.65],[23.11,-82.37,.45],
+ [35.47,-97.52,.55],[36.15,-95.99,.4],[37.69,-97.34,.35],[41.26,-95.94,.4],
+ [41.59,-93.62,.35],[43.55,-96.73,.25],[46.88,-96.79,.25],[46.81,-100.78,.2],
+ [35.08,-106.65,.35],[31.76,-106.49,.4],[33.58,-101.85,.25],[35.22,-101.83,.2],
+ [32.45,-99.73,.2],[31.99,-102.08,.25],[38.83,-104.82,.3],[40.58,-105.08,.25],
+ [37.21,-93.29,.25],[34.75,-92.29,.3],[32.51,-93.75,.3],[32.3,-90.18,.25],
+ [38.25,-85.76,.45],[39.1,-84.51,.45],[39.96,-83,.5],[43.04,-87.91,.45],
+ [43.07,-89.4,.3],[42.96,-85.67,.3],[40.69,-89.59,.2],[41.52,-90.58,.25],
+ [49.9,-97.14,.4],[50.45,-104.62,.25],[52.13,-106.67,.25],[51.05,-114.07,.45]
 ];
 export function earthNightTexture(anisotropy=4){
  const canvas=document.createElement('canvas');canvas.width=4096;canvas.height=2048;
  const ctx=canvas.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,4096,2048);
  let seed=713;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
  for(const [lat,lon,size] of cities){
-  const x=(lon+180)/360*4096,y=(90-lat)/180*2048,r=4*size;
-  for(let i=0;i<65*size;i++){
-   const a=random()*Math.PI*2,d=Math.pow(random(),1.6)*r;
-   ctx.fillStyle=`rgba(255,${170+Math.floor(random()*65)},110,${.25+random()*.65})`;
-   ctx.fillRect(x+Math.cos(a)*d,y+Math.sin(a)*d*.65,.3+random()*.3,.3+random()*.3);
+  const x=(lon+180)/360*4096,y=(90-lat)/180*2048,r=12*size;
+  // Broken clusters with dark gaps, not uniformly glowing discs.
+  for(let i=0;i<190*size;i++){
+   const a=random()*Math.PI*2,d=Math.pow(random(),.85)*r;
+   if(Math.sin(a*3+d*.8)>.45)continue;
+   ctx.fillStyle=`rgba(255,${125+Math.floor(random()*85)},65,${.4+random()*.55})`;
+   ctx.fillRect(x+Math.cos(a)*d,y+Math.sin(a)*d*.65,.35+random()*.35,.35+random()*.35);
   }
  }
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
