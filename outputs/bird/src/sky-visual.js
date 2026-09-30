@@ -7,7 +7,7 @@ export class OrbitalSky {
  constructor(renderer){
   this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#020408');
   this.camera=new THREE.PerspectiveCamera(76,1,1,25000);
-  this.sunLight=new THREE.DirectionalLight('#fff1de',4.6);this.scene.add(this.sunLight);
+  this.sunLight=new THREE.DirectionalLight('#cbdcff',.42);this.scene.add(this.sunLight);
   this.scene.add(new THREE.AmbientLight('#738dae',.003));
   const positions=new Float32Array(2300*3);let seed=57;
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -26,13 +26,13 @@ export class OrbitalSky {
      float halo=pow(edge,5.0),core=pow(edge,22.0);
      float daylight=smoothstep(0.0,0.16,dot(normalize(worldN),sun));
      vec3 nightColor=mix(vec3(0.13,0.26,0.43),vec3(0.68,0.81,1.0),core);
-     vec3 dayColor=mix(vec3(0.38,0.62,0.92),vec3(1.0,0.95,0.85),core);
+     vec3 dayColor=mix(vec3(0.9,0.36,0.045),vec3(1.0,0.88,0.48),core);
      gl_FragColor=vec4(mix(nightColor,dayColor,daylight),min(1.0,(halo*0.24+core*0.7)*mix(0.65,1.8,daylight)));
     }`
   }));
   atmosphere.position.copy(this.earth.position);this.scene.add(atmosphere);
-  // A soft halo above the lit limb, fixed in the sky rather than on the screen.
-  const limbGlow=new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS*1.012,128,64),new THREE.ShaderMaterial({
+  // Hidden-Sun glow above the western horizon; it does not light the ground.
+  const limbGlow=new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS*1.025,128,64),new THREE.ShaderMaterial({
    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
    uniforms:{sun:{value:new THREE.Vector3().copy(orbitalSky().sun)},center:{value:this.earth.position.clone()},radius:{value:EARTH_RADIUS}},
    vertexShader:'varying vec3 worldP; void main(){worldP=(modelMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
@@ -42,9 +42,10 @@ export class OrbitalSky {
      float impact=length(cross(ray,center));
      vec3 limbNormal=normalize(ray*dot(ray,center)-center);
      float lit=smoothstep(0.0,0.16,dot(limbNormal,sun));
-     float edge=smoothstep(radius*0.999,radius*1.001,impact);
-     float falloff=1.0-smoothstep(radius,radius*1.011,impact);
-     gl_FragColor=vec4(vec3(0.48,0.64,0.9),edge*falloff*falloff*lit*0.55);
+     float edge=smoothstep(radius,radius*1.001,impact);
+     float falloff=1.0-smoothstep(radius,radius*1.024,impact);
+     vec3 glowColor=mix(vec3(1.0,0.22,0.025),vec3(1.0,0.76,0.22),falloff);
+     gl_FragColor=vec4(glowColor,edge*falloff*falloff*lit*0.85);
     }`
   }));
   limbGlow.position.copy(this.earth.position);this.scene.add(limbGlow);
