@@ -1,4 +1,5 @@
 import {OrbitalSky} from './sky-visual.js';
+import {lampMesh,powerPackMesh,createLampLights,updateLampLights} from './lamp-visual.js';
 import {buildingParts,partBounds,WALL_TYPES} from './building-parts.js';
 import {compactStaticModel} from './compact-model.js';
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
@@ -25,6 +26,7 @@ function box(parent,dimensions,position,color,glow=false){
   mesh.scale.set(...dimensions);mesh.position.set(...position);parent.add(mesh);return mesh;
 }
 function buildMesh(type,platform,object={}){
+  if(type==='lamp')return lampMesh();
   const equipment=equipmentMesh(type);if(equipment)return equipment;
   if(type==='battery')return batteryMesh();
   const group=new THREE.Group();
@@ -113,6 +115,7 @@ function makeDismantleVisual(group){
   return group;
 }
 function resourceMesh(resource,templates){
+  if(['powerPack','emptyPack'].includes(resource.type))return powerPackMesh(resource.type==='emptyPack');
   if(resource.itemKey==='hook')return hookItem();
   if(resource.itemKey==='hull'&&templates?.hull){const mesh=templates.hull.clone(true);mesh.scale.multiplyScalar(18/28);mesh.userData.sharedAsset=true;return mesh;}
   if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.multiplyScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
@@ -149,7 +152,7 @@ export class SpaceView{
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
-    this.scene=new THREE.Scene();this.sky=new OrbitalSky(this.renderer);this.renderer.autoClear=false;
+    this.scene=new THREE.Scene();this.lampLights=createLampLights(this.scene);this.sky=new OrbitalSky(this.renderer);this.renderer.autoClear=false;
     // Distant orbital haze; keep the playable region crisp.
     this.scene.fog=new THREE.Fog('#050a14',1800,21000);
     this.camera=new THREE.PerspectiveCamera(76,1,.15,25000);this.scene.add(this.camera);
@@ -369,6 +372,7 @@ export class SpaceView{
     syncMagneticEffects(this,game);
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
     for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryBar!==undefined){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100))),level=node.userData.batteryBar+1,lit=level<=Math.ceil(power*5),color=power<=.05?'#e34b4b':power<=.2?'#e7b649':'#73dfca';node.visible=true;node.material.color.set(lit?color:'#26383d');node.material.emissive.set(lit?color:'#26383d');node.material.emissiveIntensity=lit?.45+power:0;}});}
+    updateLampLights(this,game);
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
     for(const [object,mesh] of this.structureMeshes)if(object.type==='battery')updateBatteryDisplay(mesh,object===game.station.battery?game.station.power:game.ship.power,object===game.station.battery?game.station.maxPower:game.ship.maxPower,game.time);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();

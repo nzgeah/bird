@@ -7,7 +7,7 @@ import {startGrab,updateGrab} from './snake-grab.js';
 import {hitSnakeRaftAttack,updateSnakeRaftAttack} from './snake-raft-attack.js';
 import {updateResourceStream} from './resource-stream.js';
 import {hitsSnake} from './snake-hitbox.js';
-import {BUILDABLES,addResource,spendResource} from './items.js';
+import {BUILDABLES,addResource,addCargoItem,spendResource} from './items.js';
 import { AXES, distance, spherePoint, segmentDistance } from './spatial.js';
 import {advancePlayer,orbitalAcceleration,resetMotion} from './physics.js';
 import {advanceSnake} from './snake-motion.js';
@@ -17,8 +17,10 @@ import {consumeEnergy,updateEnergy,MAX_ENERGY,MAX_HEALTH,MAX_RAFT_POWER,updateRa
 export {onRaft} from './raft.js';
 export { distance } from './spatial.js';
 export const TYPES=['metal','polymer','circuit','cell'];
-export const NAMES={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейки'};
+export const NAMES={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейки',powerPack:'Переносной аккумулятор',emptyPack:'Пустой аккумулятор'};
 export const RECIPES=[
+ {id:'lamp',name:'Палубная лампа',desc:'Тёплый жёлтый свет · E включить/выключить · 0.15 энергии плота/с',cost:{metal:2,polymer:1,circuit:1}},
+ {id:'powerPack',name:'Переносной аккумулятор',desc:'В руки → E: до +60 энергии робота · пустой корпус перезаряжается за 60 энергии плота',cost:{metal:1,polymer:2,circuit:1,cell:1}},
  ...['slope','corner','door','glass','damagedPanel'].map(id=>({id,name:BUILDABLES[id].name,desc:'Модуль корпуса · R — поворот'+(id==='door'?' · E — открыть':''),cost:{metal:3,polymer:2}})),
  {id:'windowWall',name:'Стена с окном',desc:'Открытое окно · R — поворот',cost:{metal:3,polymer:1}},
  {id:'arch',name:'Арка',desc:'Свободный проход · R — поворот',cost:{metal:2,polymer:1}},
@@ -76,7 +78,8 @@ export function canCraft(g,r){if(!r||g.over||g.won)return false;if(g.freeCraft)r
 export function craft(g,id){
  const r=RECIPES.find(r=>r.id===id);if(!r||!canCraft(g,r))return false;
  if(!g.freeCraft)for(const [key,count] of Object.entries(r.cost))spendResource(g,key,count);
- if(BUILDABLES[id]){g.buildInventory[id]=(g.buildInventory[id]??0)+1;g.log='Создано: '+r.name+'. Выберите предмет в инвентаре и нажмите «Установить».';}
+ if(id==='powerPack'){addCargoItem(g,id);g.log='Аккумулятор готов: выберите в инвентаре или возьмите в руки и нажмите E';}
+ else if(BUILDABLES[id]){g.buildInventory[id]=(g.buildInventory[id]??0)+1;g.log='Создано: '+r.name+'. Выберите предмет в инвентаре и нажмите «Установить».';}
  else {g.upgrades[id]=true;if(id==='repair')g.ship.hp=Math.min(g.ship.max,g.ship.hp+45);g.log='Создано: '+r.name;}
  return true;
 }

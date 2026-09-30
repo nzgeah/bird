@@ -2,6 +2,7 @@ import {onRaft} from './raft.js';
 export const MAX_ENERGY=100, MAX_HEALTH=100, MAX_RAFT_POWER=500;
 export const LOW_ENERGY=30, CRITICAL_ENERGY=15, EMERGENCY_ENERGY=5;
 export const SOLAR_GENERATION=.9, ROBOT_CHARGE_RATE=6;
+export const LAMP_POWER_RATE=.15;
 const nearStation=(g,p)=>{
  const w=g.station;if(w?.kind==='cargoWreck')return w.battery?.installed&&w.power>0&&Math.hypot(p.x-w.x-w.battery.x,p.y-w.y-20,p.z-w.z-w.battery.z)<65;
  return w&&Math.hypot(p.x-w.x,p.y-w.y,p.z-w.z)<145;
@@ -31,6 +32,7 @@ export function updateRaftPower(g,dt){
  const ship=g.ship;
  if(!ship.battery?.installed){ship.power=0;if(g.scanner){g.scanner.active=false;g.scanner.signal=false;}return;}
  let delta=0;
+ delta-=ship.objects.filter(o=>o.type==='lamp'&&o.enabled!==false).length*LAMP_POWER_RATE*dt;
  if(g.engineThrust>.01)delta-=1.5*dt;
  if(ship.objects.some(o=>o.type==='solar'))delta+=SOLAR_GENERATION*dt;
  if(g.station?.kind!=='cargoWreck'&&nearStation(g,ship))delta+=3*dt;

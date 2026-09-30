@@ -1,6 +1,7 @@
 import {SCRAP_VARIANTS} from './variants.js';
 
 export const BUILDABLES={
+  lamp:{name:'Палубная лампа',width:10,depth:10,height:22},
   slope:{name:'Наклонная панель',width:60,depth:60,height:60},
   corner:{name:'Угловая секция',width:60,depth:60,height:60},
   door:{name:'Дверь с проёмом',width:60,depth:6,height:60},
@@ -21,7 +22,7 @@ export const BUILDABLES={
   antenna:{name:'Сканирующая антенна',width:14,depth:12,height:41},
   battery:{name:'Батарейный модуль',width:20,depth:13,height:23.5},
 };
-export const ITEM_NAMES={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейка',
+export const ITEM_NAMES={metal:'Металл',polymer:'Полимер',circuit:'Электроника',cell:'Энергоячейка',powerPack:'Переносной аккумулятор',emptyPack:'Пустой аккумулятор',
   ...Object.fromEntries(SCRAP_VARIANTS.map((key,i)=>[key,['Обрывок обшивки','Сломанная балка','Обломок трубы','Бронепанель','Обломок ротора','Фрагмент солнечной панели'][i]])),
   ...Object.fromEntries(Object.entries(BUILDABLES).map(([key,value])=>[key,value.name])),
 };
