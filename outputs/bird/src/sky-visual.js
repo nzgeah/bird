@@ -1,8 +1,9 @@
 import * as THREE from '../vendor/three.module.js';
+import {northAmericaOrientation,earthSurfaceMaterial,earthCloudMaterial} from './earth-surface.js';
 import {orbitalSky,EARTH_DIRECTION,EARTH_DISTANCE,EARTH_RADIUS} from './orbit-sky.js';
 
 export class OrbitalSky {
- constructor(){
+ constructor(renderer){
   this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#020408');
   this.camera=new THREE.PerspectiveCamera(76,1,1,25000);
   this.sunLight=new THREE.DirectionalLight('#fff3dd',1.8);this.scene.add(this.sunLight);
@@ -12,15 +13,20 @@ export class OrbitalSky {
   for(let i=0;i<2300;i++){const y=random()*2-1,a=random()*Math.PI*2,r=22000;positions.set([Math.sqrt(1-y*y)*Math.cos(a)*r,y*r,Math.sqrt(1-y*y)*Math.sin(a)*r],i*3);}
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
   this.stars=new THREE.Points(geometry,new THREE.PointsMaterial({color:'#c4d8eb',size:1.2,sizeAttenuation:false,fog:false}));this.scene.add(this.stars);
-  this.earth=new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS,128,64),new THREE.MeshStandardMaterial({roughness:1,metalness:0}));
-  this.earth.position.copy(EARTH_DIRECTION).multiplyScalar(EARTH_DISTANCE);this.earth.rotation.set(.45,.7,-.6);this.scene.add(this.earth);
+  this.earth=new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS,192,96),earthSurfaceMaterial());
+  this.earth.position.copy(EARTH_DIRECTION).multiplyScalar(EARTH_DISTANCE);this.earth.quaternion.copy(northAmericaOrientation());this.scene.add(this.earth);
   const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS*1.0025,128,64),new THREE.ShaderMaterial({
    transparent:true,depthWrite:false,
    vertexShader:'varying vec3 n; varying vec3 eye; void main(){vec4 p=modelViewMatrix*vec4(position,1.0); n=normalize(normalMatrix*normal); eye=-p.xyz; gl_Position=projectionMatrix*p;}',
    fragmentShader:'varying vec3 n; varying vec3 eye; void main(){float rim=pow(1.0-abs(dot(normalize(n),normalize(eye))),4.0); gl_FragColor=vec4(0.16,0.48,0.85,rim*0.65);}'
   }));
   atmosphere.position.copy(this.earth.position);this.scene.add(atmosphere);
-  this.ready=new THREE.TextureLoader().loadAsync(new URL('../assets/earth-8k.jpg',import.meta.url).href).then(texture=>{texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;this.earth.material.map=texture;this.earth.material.needsUpdate=true;});
+  this.ready=new THREE.TextureLoader().loadAsync(new URL('../assets/earth-8k.jpg',import.meta.url).href).then(texture=>{
+   texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=renderer?.capabilities.getMaxAnisotropy()??4;
+   this.earth.material.map=texture;this.earth.material.needsUpdate=true;
+   this.clouds=new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS+14,128,64),earthCloudMaterial(texture));
+   this.clouds.position.copy(this.earth.position);this.clouds.quaternion.copy(this.earth.quaternion);this.scene.add(this.clouds);
+  });
 
  }
  update(camera,time){

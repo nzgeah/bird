@@ -149,7 +149,7 @@ export class SpaceView{
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
-    this.scene=new THREE.Scene();this.sky=new OrbitalSky();this.renderer.autoClear=false;
+    this.scene=new THREE.Scene();this.sky=new OrbitalSky(this.renderer);this.renderer.autoClear=false;
     // Distant orbital haze; keep the playable region crisp.
     this.scene.fog=new THREE.Fog('#050a14',1800,21000);
     this.camera=new THREE.PerspectiveCamera(76,1,.15,25000);this.scene.add(this.camera);
