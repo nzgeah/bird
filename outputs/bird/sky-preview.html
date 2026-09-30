@@ -1,0 +1,12 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>SpaceBird — орбитальный фон</title>
+<style>body{margin:0;background:#020408;color:#d6e4ec;font:14px system-ui}canvas{width:100vw;height:100vh;display:block}nav{position:absolute;top:16px;left:16px;padding:14px;background:#06121bd9;border:1px solid #415b69}a{color:#b9dcf0;margin-right:14px}p{margin:8px 0}#status{color:#d9b77b}</style>
+<canvas></canvas><nav><b>SPACEBIRD · ОРБИТАЛЬНЫЙ ФОН</b><p><a href="?view=earth">Земля</a><a href="?view=sun">Солнце</a><a href="?view=moon">Луна</a><a href="?time=300">Тень Земли</a><a href="?far=1">Далёкий перелёт</a><a href="/">В игру</a></p><div id="status">Загрузка…</div></nav>
+<script type="module">
+import {createGame} from './src/model.js';import {SpaceView} from './src/render3d.js';import {orbitalSky,EARTH_DIRECTION} from './src/orbit-sky.js';
+const query=new URLSearchParams(location.search),g=createGame(()=>.5),view=new SpaceView(document.querySelector('canvas'));g.time=Number(query.get('time'))||0;g.tool=null;
+Object.assign(g.player,{x:0,y:180,z:150});if(query.has('far'))Object.assign(g.player,{x:100000,y:100000,z:100000});
+const sky=orbitalSky(g.time),direction=query.get('view')==='sun'?sky.sun:query.get('view')==='moon'?sky.moon:EARTH_DIRECTION;
+const look={yaw:Math.atan2(direction.x,-direction.z),pitch:Math.asin(direction.y)};
+await view.assetsReady;view.render(g,look,0,null);document.querySelector('#status').textContent=sky.sunlight===0?'В тени · солнечные панели не вырабатывают энергию':query.has('far')?'Перелёт на 100 000 единиц · размер Земли не изменился':'На свету · солнечные панели работают';
+addEventListener('resize',()=>{view.resize();view.render(g,look,0,null);});
+</script></html>

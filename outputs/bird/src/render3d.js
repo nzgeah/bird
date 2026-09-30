@@ -1,3 +1,4 @@
+import {OrbitalSky} from './sky-visual.js';
 import {buildingParts,partBounds,WALL_TYPES} from './building-parts.js';
 import {compactStaticModel} from './compact-model.js';
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
@@ -148,15 +149,15 @@ export class SpaceView{
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
-    this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#050a14');
+    this.scene=new THREE.Scene();this.sky=new OrbitalSky();this.renderer.autoClear=false;
     // Distant orbital haze; keep the playable region crisp.
     this.scene.fog=new THREE.Fog('#050a14',1800,21000);
     this.camera=new THREE.PerspectiveCamera(76,1,.15,25000);this.scene.add(this.camera);
     this.hand=new THREE.Group();this.camera.add(this.hand);box(this.hand,[2.4,2.4,6],[3,-3,-7],'#a1babd');box(this.hand,[1.6,1.5,6],[3,-2.5,-11],'#76d9c5',true);
     this.beam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:'#ffb968'}));this.scene.add(this.beam);
-    this.scene.add(new THREE.HemisphereLight('#badcf6','#28394c',2.3));
-    const sun=new THREE.DirectionalLight('#fff1d4',3.2);sun.position.set(800,1100,500);this.scene.add(sun);
-    const rim=new THREE.DirectionalLight('#74b9ff',2);rim.position.set(-900,100,-1000);this.scene.add(rim);
+    this.ambientLight=new THREE.HemisphereLight('#badcf6','#28394c',2.3);this.scene.add(this.ambientLight);
+    this.sunLight=new THREE.DirectionalLight('#fff1d4',3.2);this.scene.add(this.sunLight);
+    this.rimLight=new THREE.DirectionalLight('#74b9ff',.4);this.rimLight.position.set(-900,100,-1000);this.scene.add(this.rimLight);
     this.robot=new THREE.Group();this.ship=new THREE.Group();this.station=new THREE.Group();this.scene.add(this.robot,this.ship,this.station);
     this.head=new THREE.Group();box(this.head,[30,24,32],[0,0,0],'#946f61');box(this.head,[24,6,3],[0,0,-18],'#ff7159',true);this.scene.add(this.head);
     this.segments=Array.from({length:18},()=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(21,19,21),material('#695b59'));this.scene.add(mesh);return mesh;});
@@ -165,10 +166,6 @@ export class SpaceView{
     this.cable=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:'#b3f8dc'}));this.scene.add(this.cable);
     this.pulse=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),new THREE.MeshBasicMaterial({color:'#a8efdc',transparent:true,opacity:.2,wireframe:true}));this.scene.add(this.pulse);
     this.targetRing=new THREE.Mesh(new THREE.TorusGeometry(22,1,6,32),new THREE.MeshBasicMaterial({color:'#d6fff0'}));this.scene.add(this.targetRing);
-    const stars=new Float32Array(2300*3);
-    for(let i=0;i<2300;i++){const u=Math.random()*2-1,a=Math.random()*Math.PI*2,r=9000+Math.random()*6000;stars[i*3]=Math.sqrt(1-u*u)*Math.cos(a)*r;stars[i*3+1]=u*r;stars[i*3+2]=Math.sqrt(1-u*u)*Math.sin(a)*r;}
-    const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.BufferAttribute(stars,3));
-    this.scene.add(new THREE.Points(starGeometry,new THREE.PointsMaterial({color:'#b7d2e9',size:8,sizeAttenuation:true,fog:false})));
     // Nearby orbital dust provides parallax. Points stay in world space;
     // only distant points are recycled, never translated with the ship.
     const dust=new Float32Array(700*3);
@@ -176,15 +173,7 @@ export class SpaceView{
     const dustGeometry=new THREE.BufferGeometry();dustGeometry.setAttribute('position',new THREE.BufferAttribute(dust,3));
     this.orbitDust=new THREE.Points(dustGeometry,new THREE.PointsMaterial({color:'#b2c5cd',size:1.5,sizeAttenuation:true,transparent:true,opacity:.55,depthWrite:false}));
     this.orbitDust.frustumCulled=false;this.scene.add(this.orbitDust);
-    const planet=new THREE.Mesh(new THREE.SphereGeometry(3900,96,64),new THREE.MeshStandardMaterial({color:'#ffffff',metalness:0,roughness:1,fog:false}));planet.position.set(-1200,-4700,-5400);this.scene.add(planet);
-    this.planet=planet;
-    this.earthReady=new THREE.TextureLoader().loadAsync(new URL('../assets/earth-8k.jpg',import.meta.url).href).then(texture=>{
-      texture.colorSpace=THREE.SRGBColorSpace;
-      texture.anisotropy=Math.min(8,this.renderer.capabilities.getMaxAnisotropy());
-      planet.material.map=texture;planet.material.needsUpdate=true;
-      return texture;
-    });
-    const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(3960,48,32),new THREE.MeshBasicMaterial({color:'#497f9d',fog:false,transparent:true,opacity:.1,side:THREE.BackSide}));atmosphere.position.copy(planet.position);this.scene.add(atmosphere);
+    this.earthReady=this.sky.ready;
     this.moduleSignature='';this.resetCamera=true;this.resize();
     this.enemyForward=new THREE.Vector3(0,0,1);this.previousEnemy=null;
     this.assetsReady=Promise.all([loadGameAssets(),this.earthReady]).then(([assets])=>{
@@ -401,7 +390,10 @@ export class SpaceView{
     this.pulse.visible=game.pulse>0;this.pulse.position.copy(position);this.pulse.scale.setScalar(Math.max(1,210*(1-game.pulse/.4)));this.pulse.material.opacity=game.pulse*.7;
     if(placement){this.placementCandidate=this.placementTarget(game,placement.type,placement.rotation);this.showPlacement(game,this.placementCandidate);this.hand.visible=false;this.targetRing.visible=false;}
     else{this.placementCandidate=null;this.showPlacement(game,null);}
-    this.scene.updateMatrixWorld();this.renderer.render(this.scene,this.camera);
+    const skyState=this.sky.update(this.camera,game.time);
+    this.sunLight.position.copy(skyState.sun);this.sunLight.intensity=3.2*skyState.sunlight;
+    this.ambientLight.intensity=.38+1.92*skyState.sunlight;this.rimLight.intensity=.18+.22*skyState.sunlight;
+    this.scene.updateMatrixWorld();this.renderer.clear();this.sky.render(this.renderer);this.renderer.clearDepth();this.renderer.render(this.scene,this.camera);
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}
 }
