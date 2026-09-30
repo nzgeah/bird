@@ -30,7 +30,7 @@ test('limited or missing raft battery cannot create energy',()=>{
  g.ship.power=500;g.ship.battery.installed=false;updateEnergy(g,{},1);close(g.energy,48.8);
 });
 test('station powers robot directly and can rescue a depleted robot',()=>{
- const g=createGame();Object.assign(g.player,g.station);g.energy=0;g.energyDepleted=true;
+ const g=createGame();Object.assign(g.player,{x:g.station.x+g.station.battery.x,y:g.station.y+32,z:g.station.z+g.station.battery.z});g.energy=0;g.energyDepleted=true;
  updateEnergy(g,{},1);close(g.energy,11.3);close(g.player.hp,100);close(g.ship.power,500);assert.equal(g.energyDepleted,false);
 });
 test('remote station does not charge raft just because robot visits it',()=>{

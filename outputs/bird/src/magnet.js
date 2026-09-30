@@ -31,6 +31,13 @@ function burst(g,p,hit){
  const snakeHit=hit?.snake||snakeSpheres(enemy).some(s=>Math.hypot(s.x-p.x,s.y-p.y,s.z-p.z)<=MAGNET_RADIUS+s.radius);
  if(snakeHit){
   hitSnakeRaftAttack(g);
+  const offset={x:enemy.x-p.x,y:enemy.y-p.y,z:enemy.z-p.z},length=Math.hypot(offset.x,offset.y,offset.z);
+  const direction=Object.fromEntries(AXES.map(a=>[a,length>.001?offset[a]/length:p.direction[a]]));
+  enemy.knockback=Object.fromEntries(AXES.map(a=>[a,direction[a]*210]));
+  enemy.deflectDirection=direction;enemy.deflectTime=.7;
+  if(enemy.motion)enemy.motion.heading={...direction};
+  if(enemy.raftAttack){enemy.raftAttack=null;enemy.nextRaftAttack=g.time+3;}
+  releaseGrab(g);
   enemy.magnetHits=g.time-(enemy.magnetLastHit??-Infinity)<=3?(enemy.magnetHits??0)+1:1;enemy.magnetLastHit=g.time;
   if(enemy.magnetHits>=3){enemy.stun=Math.max(enemy.stun??0,5);enemy.magnetRepelUntil=g.time+5;enemy.magnetHits=0;releaseGrab(g);g.log='Магнитная волна: змейка отступает на 5 секунд';}
   else g.log='Магнитная волна: попадание '+enemy.magnetHits+'/3';

@@ -2,7 +2,11 @@ import {onRaft} from './raft.js';
 export const MAX_ENERGY=100, MAX_HEALTH=100, MAX_RAFT_POWER=500;
 export const LOW_ENERGY=30, CRITICAL_ENERGY=15, EMERGENCY_ENERGY=5;
 export const SOLAR_GENERATION=.9, ROBOT_CHARGE_RATE=6;
-const nearStation=(g,p)=>g.station&&Math.hypot(p.x-g.station.x,p.y-g.station.y,p.z-g.station.z)<145;
+export const LAMP_POWER_RATE=.15;
+const nearStation=(g,p)=>{
+ const w=g.station;if(w?.kind==='cargoWreck')return w.battery?.installed&&w.power>0&&Math.hypot(p.x-w.x-w.battery.x,p.y-w.y-20,p.z-w.z-w.battery.z)<65;
+ return w&&Math.hypot(p.x-w.x,p.y-w.y,p.z-w.z)<145;
+};
 export function consumeEnergy(g,amount){if((g.energy??MAX_ENERGY)<amount){g.log='Питание нестабильно: недостаточно энергии';return false;}g.energy=Math.max(0,g.energy-amount);return true;}
 export function updateEnergy(g,input,dt){
  g.energy??=MAX_ENERGY;
@@ -10,7 +14,7 @@ export function updateEnergy(g,input,dt){
  const demand=(.7+(moving?.36:0)+(input?.sprint?1.3:0))*dt;
  let supplied=0,status='draining';
  if(nearStation(g,g.player)){
-  supplied=Math.min(demand+MAX_ENERGY-g.energy,12*dt);status='station-charging';
+  supplied=Math.min(demand+MAX_ENERGY-g.energy,12*dt,g.station.kind==='cargoWreck'?g.station.power:Infinity);if(g.station.kind==='cargoWreck')g.station.power-=supplied;status='station-charging';
  }else if(onRaft(g)&&g.ship.battery?.installed&&g.ship.power>0){
   // Every unit powering or recharging the robot is withdrawn from the raft.
   supplied=Math.min(g.ship.power,demand+Math.min(MAX_ENERGY-g.energy,ROBOT_CHARGE_RATE*dt));
@@ -28,9 +32,10 @@ export function updateRaftPower(g,dt){
  const ship=g.ship;
  if(!ship.battery?.installed){ship.power=0;if(g.scanner){g.scanner.active=false;g.scanner.signal=false;}return;}
  let delta=0;
+ delta-=ship.objects.filter(o=>o.type==='lamp'&&o.enabled!==false).length*LAMP_POWER_RATE*dt;
  if(g.engineThrust>.01)delta-=1.5*dt;
  if(ship.objects.some(o=>o.type==='solar'))delta+=SOLAR_GENERATION*dt;
- if(nearStation(g,ship))delta+=3*dt;
+ if(g.station?.kind!=='cargoWreck'&&nearStation(g,ship))delta+=3*dt;
  ship.power=Math.max(0,Math.min(ship.maxPower,ship.power+delta));
  if(ship.power<=0&&g.engineThrust>0)g.log='Плот обесточен: двигатель отключён';
 }
