@@ -25,7 +25,7 @@ function chooseTarget(g){
  })[0];
  return {tile,edge:{x:edge[0],z:edge[1]}};
 }
-function attackPoint(g,attack){return {x:g.ship.x+attack.tile.x*TILE+attack.edge.x*(TILE/2+20),y:g.ship.y+12,z:g.ship.z+attack.tile.z*TILE+attack.edge.z*(TILE/2+20)};}
+function attackPoint(g,attack){return {x:g.ship.x+attack.tile.x*TILE+attack.edge.x*(TILE/2+24),y:g.ship.y+12,z:g.ship.z+attack.tile.z*TILE+attack.edge.z*(TILE/2+24)};}
 function scheduleNext(g){g.enemy.nextRaftAttack=g.time+35+(g.random?.()??.5)*20;}
 function release(g){g.enemy.raftAttack=null;g.enemy.stun=Math.max(g.enemy.stun??0,4);g.enemy.magnetRepelUntil=g.time+4;scheduleNext(g);}
 function detachTarget(g,attack){
@@ -67,4 +67,3 @@ export function updateSnakeRaftAttack(g,dt){
  if(attack.remaining<=0)detachTarget(g,attack);
  return true;
 }
-

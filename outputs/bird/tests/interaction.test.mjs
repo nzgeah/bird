@@ -14,3 +14,4 @@ test('snake body blocks player travel and receives shots away from head',()=>{
  assert.equal(hitsSnake(g.enemy,{x:-50,y:300,z:-100},{x:50,y:300,z:-100}),true);
  assert.equal(hitsSnake(g.enemy,{x:-50,y:350,z:-100},{x:50,y:350,z:-100}),false);
 });
+

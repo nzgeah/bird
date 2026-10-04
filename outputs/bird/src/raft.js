@@ -1,3 +1,4 @@
+import {wreckDeckAt,onWreck} from './wreck.js';
 import {partBounds} from './building-parts.js';
 import {BUILDABLES} from './items.js';
 import {objectBounds} from './placement.js';
@@ -10,7 +11,8 @@ export function onRaft(g){
  if(!deckAt(g,g.player.x,g.player.z))return false;
  const feet=g.player.y-EYE_HEIGHT;
  if(Math.abs(feet-(g.ship.y+DECK_TOP))<.6)return true;
- return (g.ship.objects??[]).some(o=>{const x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return (partBounds(o)??[objectBounds(o)]).some(b=>x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6);});
+ const objects=[...(g.ship.battery?.installed?[g.ship.battery]:[]),...(g.ship.objects??[])];
+ return objects.some(o=>{const x=g.player.x-g.ship.x,z=g.player.z-g.ship.z;return (partBounds(o)??[objectBounds(o)]).some(b=>x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ&&Math.abs(feet-(g.ship.y+DECK_TOP+b.height))<.6);});
 }
 export function nextTile(g,direction={x:0,z:-1}){
  const tiles=g.ship.tiles??[],occupied=new Set(tiles.map(t=>`${t.x},${t.z}`)),candidates=new Map();
@@ -32,6 +34,11 @@ function overlaps(p,b){return p.x+BODY_RADIUS>b.min.x+CONTACT_EPSILON&&p.x-BODY_
 export function moveWithCollisions(g,delta){
  const contacts=new Set();
  const steps=Math.max(1,Math.ceil(Math.hypot(delta.x,delta.y,delta.z)/4)),boxes=raftColliders(g);
+ if(g.station?.kind==='cargoWreck'&&Math.hypot(g.player.x-g.station.x,g.player.y-g.station.y,g.player.z-g.station.z)<650+Math.hypot(delta.x,delta.y,delta.z)){
+  boxes.push(...raftColliders({ship:g.station}));
+  if(g.station.battery?.installed){const b=objectBounds(g.station.battery);boxes.push({min:{x:g.station.x+b.minX,y:g.station.y+8,z:g.station.z+b.minZ},max:{x:g.station.x+b.maxX,y:g.station.y+8+b.height,z:g.station.z+b.maxZ}});}
+ }
+ if(g.ship.battery?.installed)for(const b of partBounds(g.ship.battery)??[objectBounds(g.ship.battery)])boxes.push({min:{x:g.ship.x+b.minX,y:g.ship.y+DECK_TOP+b.bottom,z:g.ship.z+b.minZ},max:{x:g.ship.x+b.maxX,y:g.ship.y+DECK_TOP+b.height,z:g.ship.z+b.maxZ}});
  // Preserve the safe deck; outside it the head and visible body are solid.
  if(g.enemy&&!onRaft(g))for(const p of snakeSpheres(g.enemy))boxes.push({min:{x:p.x-p.radius,y:p.y-p.radius,z:p.z-p.radius},max:{x:p.x+p.radius,y:p.y+p.radius,z:p.z+p.radius}});
  for(let step=0;step<steps;step++)for(const axis of ['x','z','y']){
@@ -46,5 +53,9 @@ export function moveWithCollisions(g,delta){
  // Magnetic boots only snap from just above the physical upper surface.
  const height=g.ship.y+DECK_TOP+EYE_HEIGHT;
  if(delta.y<0&&deckAt(g,g.player.x,g.player.z)&&g.player.y>=height&&g.player.y<height+3){g.player.y=height;contacts.add('y');}
+ if(g.station?.kind==='cargoWreck'){
+ const height=g.station.y+32;
+ if(delta.y<0&&wreckDeckAt(g,g.player.x,g.player.z)&&g.player.y>=height&&g.player.y<height+3){g.player.y=height;contacts.add('y');}
+ }
  return contacts;
 }

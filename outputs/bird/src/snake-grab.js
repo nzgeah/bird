@@ -32,3 +32,4 @@ export function updateGrab(g,dt){
   if(grab.damageTimer>=1){grab.damageTimer-=1;g.player.hp=Math.max(0,g.player.hp-6);}
   return true;
 }
+

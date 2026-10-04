@@ -1,3 +1,4 @@
+import {onWreck} from './wreck.js';
 import {onRaft,deckAt,moveWithCollisions,DECK_TOP,EYE_HEIGHT} from './raft.js';
 export const ORBIT={mu:3.986004418e14,radius:6_771_000}; // circular reference orbit, 400 km
 ORBIT.rate=Math.sqrt(ORBIT.mu/ORBIT.radius**3);
@@ -15,7 +16,8 @@ export function advancePlayer(g,input,elapsed){
  const steps=Math.max(1,Math.ceil(elapsed*120)),dt=elapsed/steps;
  for(let step=0;step<steps;step++){
    const sv=g.ship.velocity??{x:0,y:0,z:0};
-   const grounded=onRaft(g)&&v.y-sv.y<=.01;
+   const aboardWreck=onWreck(g),groundVelocity=aboardWreck?{x:0,y:0,z:0}:sv;
+   const grounded=(onRaft(g)||aboardWreck)&&v.y-groundVelocity.y<=.01;
    const sa=orbitalAcceleration(g.ship,sv);
    const drift={};
    for(const axis of axes){sv[axis]+=sa[axis]*dt;drift[axis]=sv[axis]*dt;g.ship[axis]+=drift[axis];}
@@ -24,11 +26,11 @@ export function advancePlayer(g,input,elapsed){
      const speed=input.brake?0:input.sprint?145:85,rate=(input.x||input.z)?(input.sprint?330:220):320;
      const dx=(input.x??0)/length,dz=(input.z??0)/length;
      // Limit total horizontal acceleration, including diagonal starts and stops.
-     const ex=sv.x+dx*speed-v.x,ez=sv.z+dz*speed-v.z,l=Math.hypot(ex,ez)||1,f=Math.min(1,rate*dt/l);
-     v.x+=ex*f;v.z+=ez*f;v.y=sv.y-2;
+     const ex=groundVelocity.x+dx*speed-v.x,ez=groundVelocity.z+dz*speed-v.z,l=Math.hypot(ex,ez)||1,f=Math.min(1,rate*dt/l);
+     v.x+=ex*f;v.z+=ez*f;v.y=groundVelocity.y-2;
      // Magnetic boots stop walking when released; free-flight inertia only
      // applies after leaving the deck. Otherwise a short step slides off it.
-     if(!input.x&&!input.z){v.x=sv.x;v.z=sv.z;}
+     if(!input.x&&!input.z){v.x=groundVelocity.x;v.z=groundVelocity.z;}
    }else{
      // Gameplay launch assist: cancel horizontal drift once on boot release.
      // Holding Space in flight must not cancel subsequent WASD acceleration.
@@ -41,16 +43,16 @@ export function advancePlayer(g,input,elapsed){
    }
    // Resolve relative travel against the deck at its new position. This
    // coordinate shift cancels exactly for airborne motion: net travel = v*dt.
-   for(const axis of axes)p[axis]+=drift[axis];
-   const delta=Object.fromEntries(axes.map(axis=>[axis,v[axis]*dt-drift[axis]]));
+   if(!aboardWreck)for(const axis of axes)p[axis]+=drift[axis];
+   const delta=Object.fromEntries(axes.map(axis=>[axis,v[axis]*dt-(aboardWreck?0:drift[axis])]));
    const contact=moveWithCollisions(g,delta);
    for(const axis of contact){
-     const impact=Math.abs(v[axis]-sv[axis]);
+     const impact=Math.abs(v[axis]-groundVelocity[axis]);
      if(impact>80&&!(p.impactCooldown>0)){p.hp=Math.max(0,p.hp-Math.min(30,(impact-80)*.2));p.impactCooldown=.4;g.log='Удар о корпус! Тормозите Shift перед посадкой.';}
-     v[axis]=sv[axis];
+     v[axis]=aboardWreck?0:sv[axis];
    }
    p.impactCooldown=Math.max(0,(p.impactCooldown??0)-dt);
  }
- p.grounded=onRaft(g);
+ p.grounded=onRaft(g)||onWreck(g);
 }
 export function resetMotion(player){player.velocity={x:0,y:0,z:0};player.impactCooldown=0;}

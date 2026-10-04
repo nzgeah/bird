@@ -1,4 +1,0 @@
-<!doctype html><meta charset="utf-8"><style>body{margin:0}canvas{width:100vw;height:100vh}p{position:absolute;top:0;color:white;background:#123;padding:12px}</style><canvas></canvas><p id="status">Загрузка…</p><script type="module">
-import {SpaceView} from '../src/render3d.js';import {createGame} from '../src/model.js';
-const v=new SpaceView(document.querySelector('canvas'));await v.assetsReady;const g=createGame();g.tool=null;g.heldItem='01_torn_sheet';v.render(g,{yaw:0,pitch:-.15},0);document.querySelector('#status').textContent=v.heldMesh?'PASS — модель предмета в руке':'FAIL';
-</script>

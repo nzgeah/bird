@@ -20,4 +20,3 @@ test('an unprotected crafted edge tile is torn off after five seconds',()=>{
 test('a starter edge tile is also torn off after five seconds',()=>{
  const g=game(),max=g.ship.max;beginBite(g);updateSnakeRaftAttack(g,RAFT_BITE_TIME+.01);assert.equal(g.ship.tiles.length,3);assert.equal(g.ship.max,max-30);assert.ok(g.resources.some(r=>r.itemKey==='hull'));
 });
-

@@ -13,3 +13,4 @@ test('craft walls and ceiling, walk below roof, collide with wall and roof',()=>
  moveWithCollisions(g,{x:0,y:0,z:-100});assert.equal(g.player.z,-16);
  moveWithCollisions(g,{x:0,y:150,z:0});assert.equal(g.player.y,64);
 });
+

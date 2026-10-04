@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><title>КАРГО–17 — просмотр корабля</title>
+<style>body{margin:0;background:#050a14;color:#dbebee;font:14px system-ui}canvas{width:100vw;height:100vh;display:block}nav{position:absolute;top:20px;left:20px;padding:14px 18px;background:#071017dd;border:1px solid #52616c}a{color:#e5b979;margin-right:16px}p{margin:8px 0 0}</style>
+<canvas id="space"></canvas><nav><b>КАРГО–17 / РАЗРУШЕННЫЙ ГРУЗОВОЙ КОРАБЛЬ</b><p><a href="?view=exterior">Снаружи</a><a href="?view=cargo">Грузовой отсек</a><a href="?view=cabin">Кабина</a><a href="/?wreck=1">Играть</a></p><p id="status">Загрузка моделей…</p></nav>
+<script type="module">
+import {createGame} from './src/model.js';
+import {SpaceView} from './src/render3d.js';
+const game=createGame(()=>.5),view=new SpaceView(document.querySelector('canvas'));
+const shots={exterior:{x:500,y:300,z:-600,yaw:-2.447,pitch:-.3},cargo:{x:100,y:32,z:35,yaw:-1.15,pitch:0},cabin:{x:0,y:32,z:-170,yaw:0,pitch:0}};
+const shot=shots[new URLSearchParams(location.search).get('view')]??shots.exterior;
+Object.assign(game.player,{x:game.station.x+shot.x,y:shot.y,z:game.station.z+shot.z});game.tool=null;
+await view.assetsReady;view.render(game,shot,0,null);
+document.querySelector('#status').textContent='Модули разборные · вход через пробоину · три отсека';
+addEventListener('resize',()=>{view.resize();view.render(game,shot,0,null);});
+</script></html>

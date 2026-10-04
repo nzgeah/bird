@@ -30,7 +30,7 @@ export function validatePlacement(g,type,x,z,rotation=0){
   for(let tx=Math.floor((b.minX+TILE_SIZE/2)/TILE_SIZE);tx<=Math.floor((b.maxX+TILE_SIZE/2-1e-6)/TILE_SIZE);tx++)
     for(let tz=Math.floor((b.minZ+TILE_SIZE/2)/TILE_SIZE);tz<=Math.floor((b.maxZ+TILE_SIZE/2-1e-6)/TILE_SIZE);tz++)
       if(!g.ship.tiles.some(t=>t.x===tx&&t.z===tz))return fail('Объект выходит за край палубы');
-  for(const object of g.ship.objects){
+  for(const object of [...g.ship.objects,...(g.ship.battery?.installed?[g.ship.battery]:[])]){
     const other=objectBounds(object);
     // Perpendicular wall panels may join at their solid corner.
     if(WALL_TYPES.includes(type)&&WALL_TYPES.includes(object.type)&&Math.abs(Math.round((rotation-(object.rotation??0))/(Math.PI/2)))%2)continue;
@@ -46,6 +46,7 @@ export function placeFromInventory(g,type,x,z,rotation=0){
   if(!result.valid){g.log=result.reason;return false;}
   g.buildInventory[type]--;
   if(type==='hull'){g.ship.tiles.push({x:x/TILE_SIZE,z:z/TILE_SIZE,placed:true});g.ship.modules++;g.ship.max+=40;g.ship.hp+=40;}
+  else if(type==='battery'&&g.ship.battery&&!g.ship.battery.installed){Object.assign(g.ship.battery,{x,z,rotation,installed:true});g.upgrades[type]=true;}
   else {const object={type,x,z,rotation};if(type==='cargoPod')object.storage={metal:0,polymer:0,circuit:0,cell:0};g.ship.objects.push(object);g.upgrades[type]=true;if(type==='engine')g.engineFuel=Math.max(g.engineFuel??0,45);}
   g.log='Установлено: '+BUILDABLES[type].name;
   if(type==='beacon'){g.won=true;g.log='Сигнал принят. BIRD снова в сети.';}
@@ -71,25 +72,47 @@ function deckStaysConnected(tiles){
   }
   return remaining.size===0;
 }
+function overlapsTile(object,tile){
+  const b=objectBounds(object),minX=tile.x*TILE_SIZE-TILE_SIZE/2,maxX=tile.x*TILE_SIZE+TILE_SIZE/2;
+  const minZ=tile.z*TILE_SIZE-TILE_SIZE/2,maxZ=tile.z*TILE_SIZE+TILE_SIZE/2;
+  return b.minX<maxX&&b.maxX>minX&&b.minZ<maxZ&&b.maxZ>minZ;
+}
+function ejectBuiltItem(g,type,position){
+  let dx=position.x-g.ship.x,dz=position.z-g.ship.z,length=Math.hypot(dx,dz);
+  if(length<1){const angle=(g.random?.()??.5)*Math.PI*2;dx=Math.cos(angle);dz=Math.sin(angle);length=1;}
+  g.resources.push({type:'item',itemKey:type,...position,vx:dx/length*38,vy:22+(g.random?.()??.5)*8,vz:dz/length*38,pickupAfter:g.time+1.2});
+}
+function detachObject(g,object){
+  const position=targetPosition(g,{kind:'object',entity:object}),type=object.type;
+  ejectStoredResources(g,object,position);
+  if(object===g.ship.battery)g.ship.battery.installed=false;
+  else g.ship.objects.splice(g.ship.objects.indexOf(object),1);
+  if(object===g.ship.battery||!g.ship.objects.some(item=>item.type===type))g.upgrades[type]=false;
+  ejectBuiltItem(g,type,position);
+}
 export function canDismantle(g,target){
+ if(target?.owner&&target.owner!==g.ship)return canDismantle({...g,ship:target.owner},{...target,owner:undefined});
   if(!target?.entity)return {valid:false,reason:'Наведитесь на постройку'};
   const position=targetPosition(g,target);
   if(Math.hypot(g.player.x-position.x,g.player.y-position.y,g.player.z-position.z)>BUILD_REACH)return {valid:false,reason:'Подойдите ближе'};
   if(target.kind==='object'){
+    if(target.entity===g.ship.battery)return g.ship.battery.installed?{valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'}:{valid:false,reason:'Батарея уже разобрана'};
     if(!g.ship.objects.includes(target.entity))return {valid:false,reason:'Постройка уже разобрана'};
-    return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
+    return {valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'};
   }
   const tile=target.entity;
   if(!g.ship.tiles.includes(tile))return {valid:false,reason:'Секция уже разобрана'};
   const px=g.player.x-g.ship.x,pz=g.player.z-g.ship.z;
   if(Math.abs(px-tile.x*TILE_SIZE)<TILE_SIZE/2+8&&Math.abs(pz-tile.z*TILE_SIZE)<TILE_SIZE/2+8)return {valid:false,reason:'Сойдите с этой секции'};
-  const minX=tile.x*TILE_SIZE-TILE_SIZE/2,maxX=tile.x*TILE_SIZE+TILE_SIZE/2;
-  const minZ=tile.z*TILE_SIZE-TILE_SIZE/2,maxZ=tile.z*TILE_SIZE+TILE_SIZE/2;
-  if(g.ship.objects.some(object=>{const b=objectBounds(object);return b.minX<maxX&&b.maxX>minX&&b.minZ<maxZ&&b.maxZ>minZ;}))return {valid:false,reason:'Сначала разберите объект на секции'};
-  if(!deckStaysConnected(g.ship.tiles.filter(t=>t!==tile)))return {valid:false,reason:'Нельзя разделить палубу'};
-  return {valid:true,reason:'Удерживайте X, чтобы разобрать'};
+  if(g.ship.kind!=='cargoWreck'&&!deckStaysConnected(g.ship.tiles.filter(t=>t!==tile)))return {valid:false,reason:'Нельзя разделить палубу'};
+  return {valid:true,reason:'Удерживайте ЛКМ, чтобы разобрать'};
 }
 export function updateDismantle(g,target,held,dt){
+ if(target?.owner&&target.owner!==g.ship){
+  const originalShip=g.ship,originalUpgrades=g.upgrades;
+  try{g.ship=target.owner;g.upgrades=target.owner.upgrades??={};return updateDismantle(g,{...target,owner:undefined},held,dt);}
+  finally{g.ship=originalShip;g.upgrades=originalUpgrades;}
+ }
   const check=canDismantle(g,target);
   if(!held||!check.valid){
     g.dismantle=null;
@@ -100,21 +123,18 @@ export function updateDismantle(g,target,held,dt){
   if(g.dismantle.progress<DISMANTLE_TIME)return {active:true,progress:g.dismantle.progress/DISMANTLE_TIME,reason:'Разборка'};
   const position=targetPosition(g,target),type=target.kind==='tile'?'hull':target.entity.type;
   if(target.kind==='tile'){
+    const supported=[...g.ship.objects,...(g.ship.battery?.installed?[g.ship.battery]:[])].filter(object=>overlapsTile(object,target.entity));
+    for(const object of supported)detachObject(g,object);
     const durability=target.entity.placed?40:30;
     g.ship.tiles.splice(g.ship.tiles.indexOf(target.entity),1);
     g.ship.modules=Math.max(0,g.ship.modules-1);
     g.ship.max=Math.max(0,g.ship.max-durability);
     g.ship.hp=Math.min(g.ship.hp,g.ship.max);
   }else{
-    ejectStoredResources(g,target.entity,position);
-    g.ship.objects.splice(g.ship.objects.indexOf(target.entity),1);
-    g.upgrades[type]=false;
+    detachObject(g,target.entity);
   }
-  let dx=position.x-g.ship.x,dz=position.z-g.ship.z,length=Math.hypot(dx,dz);
-  if(length<1){const angle=(g.random?.()??.5)*Math.PI*2;dx=Math.cos(angle);dz=Math.sin(angle);length=1;}
-  g.resources.push({type:'item',itemKey:type,...position,vx:dx/length*38,vy:22+(g.random?.()??.5)*8,vz:dz/length*38,pickupAfter:g.time+1.2});
+  if(target.kind==='tile')ejectBuiltItem(g,type,position);
   g.dismantle=null;
   g.log='Разобрано: '+BUILDABLES[type].name+'. Предмет выброшен в космос.';
   return {active:false,completed:true,reason:g.log};
 }
-

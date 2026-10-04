@@ -15,3 +15,4 @@ test('orbital asteroid flight and rotation advance consistently across frame rat
  for(const key of ['x','y','z','spinAngle'])assert.ok(Math.abs(a[i][key]-b[i][key])<1e-8);
  }
 });
+

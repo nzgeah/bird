@@ -24,3 +24,4 @@ test('holding the primary mouse button exposes a dismantle hold state',()=>{
   c.primary=true;c.clear();assert.equal(c.primary,false);
  }finally{for(const [key,value] of Object.entries(previous)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });
+

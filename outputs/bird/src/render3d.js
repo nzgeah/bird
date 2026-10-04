@@ -1,4 +1,7 @@
+import {OrbitalSky} from './sky-visual.js';
+import {lampMesh,powerPackMesh,createLampLights,updateLampLights} from './lamp-visual.js';
 import {buildingParts,partBounds,WALL_TYPES} from './building-parts.js';
+import {compactStaticModel} from './compact-model.js';
 import {BUILDABLES,ITEM_NAMES,resourceKey} from './items.js';
 import {objectBounds,validatePlacement,BUILD_REACH} from './placement.js';
 import * as THREE from '../vendor/three.module.js';
@@ -6,6 +9,9 @@ import {SCRAP_VARIANTS,ASTEROID_VARIANTS,ASTEROID_SIZES} from './variants.js';
 import {flightVector, distance} from './spatial.js';
 import {TILE,DECK_TOP} from './raft.js';
 import {loadGameAssets,sampleTrail} from './assets.js';
+import {batteryMesh,setBatteryTemplate,updateBatteryDisplay} from './battery-visual.js';
+import {equipmentMesh,setEquipmentTemplates} from './equipment-visual.js';
+import {setMagneticModels,magneticModel,hookItem,syncMagneticEffects} from './magnetic-visual.js';
 export const COLORS={metal:'#d7b580',polymer:'#8ccbc7',circuit:'#bda1f0',cell:'#98d987'};
 
 const materials=new Map();
@@ -19,10 +25,31 @@ function box(parent,dimensions,position,color,glow=false){
   const mesh=new THREE.Mesh(cube,material(color,glow));
   mesh.scale.set(...dimensions);mesh.position.set(...position);parent.add(mesh);return mesh;
 }
-function buildMesh(type,platform){
+function buildMesh(type,platform,object={}){
+  if(type==='lamp')return lampMesh();
+  const equipment=equipmentMesh(type);if(equipment)return equipment;
+  if(type==='battery')return batteryMesh();
   const group=new THREE.Group();
-  const parts=buildingParts(type);
-  if(parts){for(const [w,h,d,x,y,z] of parts)box(group,[w,h,d],[x,y,z],type==='fence'?'#a28c65':'#536b75');return group;}
+  if(type==='slope'||type==='corner'){
+    let geometry;
+    if(type==='slope'){
+      geometry=new THREE.BoxGeometry(60,6,60);const positions=geometry.attributes.position;
+      for(let i=0;i<positions.count;i++)positions.setY(i,positions.getY(i)+3+(positions.getZ(i)+30)*.9);
+    }else{
+      const vertices=[[30,0,-30],[30,54,30],[-30,54,30],[30,6,-30],[30,60,30],[-30,60,30]];
+      geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices.flat(),3));
+      geometry.setIndex([0,2,1,3,4,5,0,1,4,0,4,3,1,2,5,1,5,4,2,0,3,2,3,5]);
+    }
+    geometry.computeVertexNormals();group.add(new THREE.Mesh(geometry,material('#536b75')));return group;
+  }
+  if(['engine','cargoPod','repairDock','solar','beacon','antenna'].includes(type))group.scale.setScalar(.5);
+  const parts=buildingParts(type,object.open);
+  if(parts){for(const [w,h,d,x,y,z] of parts){
+ const mesh=box(group,[w,h,d],[x,y,z],type==='damagedPanel'?'#936448':type==='door'?'#c79451':type==='fence'?'#a28c65':'#536b75');
+ if(type==='glass'&&d===2){mesh.material=new THREE.MeshStandardMaterial({color:'#79c8de',transparent:true,opacity:.28,metalness:.3,roughness:.15,depthWrite:false});}
+ }
+ if(type==='door')box(group,[8,3,1],[17,32,4],object.locked?'#ed5844':object.open?'#70d9ab':'#e6b56f',true);
+ return group;}
   if(type==='wall'||type==='ceiling'){
     const wall=type==='wall',y=wall?40:84;
     box(group,wall?[80,80,8]:[80,8,80],[0,y,0],'#536b75');
@@ -51,6 +78,22 @@ function buildMesh(type,platform){
     for(const side of [-1,1])box(group,[3,27,34],[side*17,13,0],'#71838a');
     return group;
   }
+  if(type==='antenna'){
+    box(group,[26,12,22],[0,6,0],'#4b6069');
+    box(group,[4,62,4],[0,42,0],'#b8875c');
+    box(group,[30,3,3],[0,55,0],'#71d6d5',true);
+    box(group,[3,3,26],[0,38,0],'#71d6d5',true);
+    return group;
+  }
+  if(type==='battery'){
+    box(group,[40,30,32],[0,15,0],'#40545e');
+    box(group,[34,22,3],[0,15,-18],'#172a30');
+    for(let i=-2;i<=2;i++){const bar=box(group,[4,15,3],[i*6,15,-20],'#73dfca',true);bar.userData.batteryBar=i+2;}
+    box(group,[13,4,4],[-10,33,0],'#c5a15e');box(group,[13,4,4],[10,33,0],'#c5a15e');
+    box(group,[4,5,4],[-10,37,0],'#d4e2df',true);box(group,[4,5,4],[10,37,0],'#d4e2df',true);
+    for(const side of [-1,1])box(group,[4,24,28],[side*19,15,0],'#98734e');
+    return group;
+  }
   box(group,[32,22,26],[0,11,0],'#61747d');
   box(group,[24,1,18],[0,22,0],type==='repairDock'?'#dfab69':'#68b6b0',true);
   if(type==='solar')for(const side of [-1,1])box(group,[30,2,24],[side*33,19,0],'#28599a');
@@ -72,9 +115,13 @@ function makeDismantleVisual(group){
   return group;
 }
 function resourceMesh(resource,templates){
-  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.setScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
+  if(['powerPack','emptyPack'].includes(resource.type))return powerPackMesh(resource.type==='emptyPack');
+  if(resource.itemKey==='hook')return hookItem();
+  if(resource.itemKey==='hull'&&templates?.hull){const mesh=templates.hull.clone(true);mesh.scale.multiplyScalar(18/28);mesh.userData.sharedAsset=true;return mesh;}
+  if(resource.itemKey){const group=BUILDABLES[resource.itemKey]?buildMesh(resource.itemKey):new THREE.Group();if(!BUILDABLES[resource.itemKey]){box(group,[7,7,22],[0,0,0],'#a1babd');box(group,[4,4,12],[0,2,-13],resource.itemKey==='blaster'?'#ffc279':'#76d9c5',true);}const bounds=new THREE.Box3().setFromObject(group),size=bounds.getSize(new THREE.Vector3()),floatingSize=BUILDABLES[resource.itemKey]?18:28;group.scale.multiplyScalar(floatingSize/Math.max(size.x,size.y,size.z));group.userData.sharedAsset=true;return group;}
   resourceKey(resource);
-  if(resource.type==='metal'&&templates){const mesh=templates[resource.variant].clone(true);mesh.userData.sharedAsset=true;return mesh;}
+  const template=templates?.[resource.type==='metal'?resource.variant:resource.type];
+  if(template){const mesh=template.clone(true);mesh.userData.sharedAsset=true;return mesh;}
   return new THREE.Mesh(resource.type==='cell'?new THREE.OctahedronGeometry(12):new THREE.BoxGeometry(18,resource.type==='metal'?7:13,14),material(COLORS[resource.type],true));
 }
 function orientSmooth(object,target,dt,snap){
@@ -105,16 +152,16 @@ export class SpaceView{
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.35;
-    this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#050a14');
+    this.scene=new THREE.Scene();this.lampLights=createLampLights(this.scene);this.sky=new OrbitalSky(this.renderer);this.renderer.autoClear=false;
     // Distant orbital haze; keep the playable region crisp.
     this.scene.fog=new THREE.Fog('#050a14',1800,21000);
     this.camera=new THREE.PerspectiveCamera(76,1,.15,25000);this.scene.add(this.camera);
     this.hand=new THREE.Group();this.camera.add(this.hand);box(this.hand,[2.4,2.4,6],[3,-3,-7],'#a1babd');box(this.hand,[1.6,1.5,6],[3,-2.5,-11],'#76d9c5',true);
     this.beam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:'#ffb968'}));this.scene.add(this.beam);
-    this.scene.add(new THREE.HemisphereLight('#badcf6','#28394c',2.3));
-    const sun=new THREE.DirectionalLight('#fff1d4',3.2);sun.position.set(800,1100,500);this.scene.add(sun);
-    const rim=new THREE.DirectionalLight('#74b9ff',2);rim.position.set(-900,100,-1000);this.scene.add(rim);
-    this.robot=new THREE.Group();this.ship=new THREE.Group();this.station=makeStation();this.scene.add(this.robot,this.ship,this.station);
+    this.ambientLight=new THREE.HemisphereLight('#badcf6','#28394c',2.3);this.scene.add(this.ambientLight);
+    this.sunLight=new THREE.DirectionalLight('#fff1d4',3.2);this.scene.add(this.sunLight);
+    this.rimLight=new THREE.DirectionalLight('#74b9ff',.4);this.rimLight.position.set(-900,100,-1000);this.scene.add(this.rimLight);
+    this.robot=new THREE.Group();this.ship=new THREE.Group();this.station=new THREE.Group();this.scene.add(this.robot,this.ship,this.station);
     this.head=new THREE.Group();box(this.head,[30,24,32],[0,0,0],'#946f61');box(this.head,[24,6,3],[0,0,-18],'#ff7159',true);this.scene.add(this.head);
     this.segments=Array.from({length:18},()=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(21,19,21),material('#695b59'));this.scene.add(mesh);return mesh;});
     this.resourceMeshes=new Map();this.structureMeshes=new Map();this.raycaster=new THREE.Raycaster();this.pointer=new THREE.Vector2();
@@ -122,10 +169,6 @@ export class SpaceView{
     this.cable=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:'#b3f8dc'}));this.scene.add(this.cable);
     this.pulse=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),new THREE.MeshBasicMaterial({color:'#a8efdc',transparent:true,opacity:.2,wireframe:true}));this.scene.add(this.pulse);
     this.targetRing=new THREE.Mesh(new THREE.TorusGeometry(22,1,6,32),new THREE.MeshBasicMaterial({color:'#d6fff0'}));this.scene.add(this.targetRing);
-    const stars=new Float32Array(2300*3);
-    for(let i=0;i<2300;i++){const u=Math.random()*2-1,a=Math.random()*Math.PI*2,r=9000+Math.random()*6000;stars[i*3]=Math.sqrt(1-u*u)*Math.cos(a)*r;stars[i*3+1]=u*r;stars[i*3+2]=Math.sqrt(1-u*u)*Math.sin(a)*r;}
-    const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.BufferAttribute(stars,3));
-    this.scene.add(new THREE.Points(starGeometry,new THREE.PointsMaterial({color:'#b7d2e9',size:8,sizeAttenuation:true,fog:false})));
     // Nearby orbital dust provides parallax. Points stay in world space;
     // only distant points are recycled, never translated with the ship.
     const dust=new Float32Array(700*3);
@@ -133,19 +176,17 @@ export class SpaceView{
     const dustGeometry=new THREE.BufferGeometry();dustGeometry.setAttribute('position',new THREE.BufferAttribute(dust,3));
     this.orbitDust=new THREE.Points(dustGeometry,new THREE.PointsMaterial({color:'#b2c5cd',size:1.5,sizeAttenuation:true,transparent:true,opacity:.55,depthWrite:false}));
     this.orbitDust.frustumCulled=false;this.scene.add(this.orbitDust);
-    const planet=new THREE.Mesh(new THREE.SphereGeometry(3900,96,64),new THREE.MeshStandardMaterial({color:'#ffffff',metalness:0,roughness:1,fog:false}));planet.position.set(-1200,-4700,-5400);this.scene.add(planet);
-    this.planet=planet;
-    this.earthReady=new THREE.TextureLoader().loadAsync(new URL('../assets/earth-8k.jpg',import.meta.url).href).then(texture=>{
-      texture.colorSpace=THREE.SRGBColorSpace;
-      texture.anisotropy=Math.min(8,this.renderer.capabilities.getMaxAnisotropy());
-      planet.material.map=texture;planet.material.needsUpdate=true;
-      return texture;
-    });
-    const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(3960,48,32),new THREE.MeshBasicMaterial({color:'#497f9d',fog:false,transparent:true,opacity:.1,side:THREE.BackSide}));atmosphere.position.copy(planet.position);this.scene.add(atmosphere);
+    this.earthReady=this.sky.ready;
     this.moduleSignature='';this.resetCamera=true;this.resize();
     this.enemyForward=new THREE.Vector3(0,0,1);this.previousEnemy=null;
     this.assetsReady=Promise.all([loadGameAssets(),this.earthReady]).then(([assets])=>{
+      setBatteryTemplate(assets.battery);
+      setEquipmentTemplates(assets.equipment);
+      setMagneticModels(assets.magnetic);
+      this.hookWeapon=magneticModel('magnetic-hook',4.2);this.hookWeapon.rotation.y=Math.PI;this.hookWeapon.position.set(3,-2.5,-7);this.camera.add(this.hookWeapon);
+      this.scene.remove(this.hook);this.hook.geometry.dispose();this.hook=magneticModel('attraction-orb',14);this.scene.add(this.hook);
       this.platformTemplate=assets.platform;
+      this.wreckPlatformTemplate=compactStaticModel(assets.platform);
       this.floatingTemplates=assets.floating;
       for(const mesh of this.resourceMeshes.values()){this.scene.remove(mesh);mesh.geometry?.dispose();}
       this.resourceMeshes.clear();
@@ -154,13 +195,13 @@ export class SpaceView{
       this.head=assets.snake.head;this.segments=assets.snake.segments;
       this.scene.add(this.head,...this.segments);this.importedSnake=true;
       this.enemyVisualInitialized=false;
-      this.moduleSignature='';
+      this.moduleSignature='';this.wreckSignature='';
       return assets;
     });
   }
   resize(){this.renderer.setSize(innerWidth,innerHeight,false);this.camera.aspect=innerWidth/innerHeight;this.camera.updateProjectionMatrix();}
   rebuildShip(game){
-    const signature=JSON.stringify([game.ship.tiles,game.ship.objects]);
+    const signature=JSON.stringify([game.ship.tiles,game.ship.objects,game.ship.battery]);
     if(signature===this.moduleSignature)return;
     this.moduleSignature=signature;this.ship.clear();this.structureMeshes.clear();
     for(const tile of game.ship.tiles){
@@ -175,8 +216,31 @@ export class SpaceView{
       }
       makeDismantleVisual(group);this.ship.add(group);this.structureMeshes.set(tile,group);
     }
-    for(const o of game.ship.objects){const mesh=buildMesh(o.type,this.platformTemplate);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;makeDismantleVisual(mesh);this.ship.add(mesh);this.structureMeshes.set(o,mesh);}
-  }  syncResources(game){
+    for(const o of [...game.ship.objects,...(game.ship.battery?.installed?[game.ship.battery]:[])]){const mesh=buildMesh(o.type,this.platformTemplate,o);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;makeDismantleVisual(mesh);this.ship.add(mesh);this.structureMeshes.set(o,mesh);}
+  }
+  rebuildWreck(game){
+   const w=game.station;if(w?.kind!=='cargoWreck')return;
+   const signature=JSON.stringify([w.tiles,w.objects,w.battery]);
+   if(this.wreckSignature!==signature){
+    for(const o of this.wreckMeshes?.keys()??[])this.structureMeshes.delete(o);
+    this.wreckSignature=signature;this.station.clear();this.wreckMeshes=new Map();
+    for(const tile of w.tiles){
+     const mesh=buildMesh('hull',this.wreckPlatformTemplate);mesh.position.set(tile.x*TILE,DECK_TOP,tile.z*TILE);
+     makeDismantleVisual(mesh);this.station.add(mesh);this.wreckMeshes.set(tile,mesh);
+    }
+    for(const o of [...w.objects,...(w.battery?.installed?[w.battery]:[])]){
+     const mesh=buildMesh(o.type,this.platformTemplate,o);mesh.position.set(o.x,DECK_TOP,o.z);mesh.rotation.y=o.rotation??0;
+     makeDismantleVisual(mesh);this.station.add(mesh);this.wreckMeshes.set(o,mesh);
+    }
+    for(const z of [-205,0,235]){
+     box(this.station,[30,2,3],[0,66,z],'#7ccdd0',true);
+    }
+    box(this.station,[4,40,4],[145,30,-32],'#ebad53',true);
+    box(this.station,[4,40,4],[145,30,92],'#ebad53',true);
+   }
+   for(const [o,mesh] of this.wreckMeshes)this.structureMeshes.set(o,mesh);
+  }
+  syncResources(game){
     const visibleResources=game.hook?.resource?[...game.resources,game.hook.resource]:game.resources;
       const live=new Set(visibleResources);
       for(const [resource,mesh] of this.resourceMeshes)if(!live.has(resource)){this.scene.remove(mesh);if(!mesh.userData.sharedAsset)mesh.geometry?.dispose();this.resourceMeshes.delete(resource);}
@@ -205,8 +269,8 @@ export class SpaceView{
     const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});renderer.setSize(128,96);renderer.outputColorSpace=THREE.SRGBColorSpace;
     const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight(0xffffff,0x456070,3));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(3,5,4);scene.add(light);
     const camera=new THREE.PerspectiveCamera(35,128/96,.01,2000),result={};
-    for(const key of Object.keys(ITEM_NAMES)){
-      const object=BUILDABLES[key]?buildMesh(key,this.platformTemplate):resourceMesh({type:SCRAP_VARIANTS.includes(key)?'metal':key,variant:SCRAP_VARIANTS.includes(key)?key:undefined},this.floatingTemplates);
+    for(const key of [...Object.keys(ITEM_NAMES),'hook']){
+      const object=key==='hook'?hookItem():key==='hull'?resourceMesh({itemKey:key},this.floatingTemplates):BUILDABLES[key]?buildMesh(key,this.platformTemplate):resourceMesh({type:SCRAP_VARIANTS.includes(key)?'metal':key,variant:SCRAP_VARIANTS.includes(key)?key:undefined},this.floatingTemplates);
       const bounds=new THREE.Box3().setFromObject(object),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
       object.position.sub(center);scene.add(object);const extent=Math.max(size.x,size.y,size.z,1);camera.position.set(extent*1.6,extent*1.2,extent*1.8);camera.lookAt(0,0,0);renderer.render(scene,camera);
       result[key]=renderer.domElement.toDataURL();scene.remove(object);
@@ -230,13 +294,13 @@ export class SpaceView{
   showPlacement(game,candidate){
     if(!candidate){if(this.ghost)this.ghost.visible=false;return;}
     if(this.ghostType!==candidate.type){
-      if(this.ghost){this.scene.remove(this.ghost);this.ghost.traverse(n=>{if(n.isMesh)n.material.dispose();});}
-      this.ghost=buildMesh(candidate.type,this.platformTemplate);this.ghostType=candidate.type;
+      if(this.ghost){this.scene.remove(this.ghost);this.ghost.traverse(n=>{if(n.isMesh||n.isLine)n.material.dispose();if(n.isLine)n.geometry.dispose();});}
+      this.ghost=new THREE.Group();this.ghost.add(buildMesh(candidate.type,this.platformTemplate));this.ghostType=candidate.type;
       this.ghost.traverse(n=>{if(n.isMesh)n.material=new THREE.MeshBasicMaterial({color:0x55ff99,transparent:true,opacity:.38,depthWrite:false,side:THREE.DoubleSide});});
-      const spec=BUILDABLES[candidate.type];const outline=new THREE.Mesh(new THREE.BoxGeometry(spec.width,.4,spec.depth),new THREE.MeshBasicMaterial({color:0x55ff99,wireframe:true,transparent:true,opacity:.95}));outline.position.y=.6;outline.userData.previewOutline=true;this.ghost.add(outline);this.scene.add(this.ghost);
+      const spec=BUILDABLES[candidate.type],w=spec.width/2,d=spec.depth/2;const outline=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-w,.6,-d),new THREE.Vector3(w,.6,-d),new THREE.Vector3(w,.6,d),new THREE.Vector3(-w,.6,d)]),new THREE.LineBasicMaterial({color:0x55ff99,transparent:true,opacity:.85}));outline.userData.previewOutline=true;this.ghost.add(outline);this.scene.add(this.ghost);
     }
     this.ghost.visible=Number.isFinite(candidate.x)&&Number.isFinite(candidate.z);
-    if(this.ghost.visible){this.ghost.position.set(game.ship.x+candidate.x,game.ship.y+DECK_TOP+.15,game.ship.z+candidate.z);this.ghost.rotation.y=candidate.rotation;this.ghost.traverse(n=>{if(n.isMesh)n.material.color.set(candidate.valid?0x55ff99:0xff4058);});}
+    if(this.ghost.visible){this.ghost.position.set(game.ship.x+candidate.x,game.ship.y+DECK_TOP+.15,game.ship.z+candidate.z);this.ghost.rotation.y=candidate.rotation;this.ghost.traverse(n=>{if(n.isMesh||n.isLine)n.material.color.set(candidate.valid?0x55ff99:0xff4058);});}
   }
   // Raycasts against actual 3D debris volumes, never a flat collection plane.
   aim(clientX,clientY,game){
@@ -251,21 +315,18 @@ export class SpaceView{
   structureAim(game){
     this.camera.updateMatrixWorld();this.raycaster.setFromCamera(new THREE.Vector2(0,0),this.camera);
     let target=null,depth=Infinity;
-    const consider=(kind,entity,box)=>{
-      const hit=this.raycaster.ray.intersectBox(box,new THREE.Vector3());
-      if(!hit)return;
-      const d=this.camera.position.distanceTo(hit);
-      if(d<=BUILD_REACH&&d<depth){depth=d;target={kind,entity};}
+    const consider=(owner,kind,entity,b)=>{
+      const hit=this.raycaster.ray.intersectBox(b,new THREE.Vector3());if(!hit)return;
+      const d=this.camera.position.distanceTo(hit);if(d<=BUILD_REACH&&d<depth){depth=d;target={owner,kind,entity};}
     };
-    for(const object of game.ship.objects)for(const b of partBounds(object)??[objectBounds(object)]){
-      consider('object',object,new THREE.Box3(
-        new THREE.Vector3(game.ship.x+b.minX,game.ship.y+DECK_TOP+b.bottom,game.ship.z+b.minZ),
-        new THREE.Vector3(game.ship.x+b.maxX,game.ship.y+DECK_TOP+b.height,game.ship.z+b.maxZ)
-      ));
-    }
-    for(const tile of game.ship.tiles){
-      const x=game.ship.x+tile.x*TILE,z=game.ship.z+tile.z*TILE;
-      consider('tile',tile,new THREE.Box3(new THREE.Vector3(x-TILE/2,game.ship.y-8,z-TILE/2),new THREE.Vector3(x+TILE/2,game.ship.y+DECK_TOP+.5,z+TILE/2)));
+    for(const owner of [game.ship,...(game.station?.kind==='cargoWreck'?[game.station]:[])]){
+     for(const o of [...owner.objects,...(owner.battery?.installed?[owner.battery]:[])])
+      for(const b of partBounds(o)??[objectBounds(o)])consider(owner,'object',o,new THREE.Box3(
+       new THREE.Vector3(owner.x+b.minX,owner.y+DECK_TOP+b.bottom,owner.z+b.minZ),
+       new THREE.Vector3(owner.x+b.maxX,owner.y+DECK_TOP+b.height,owner.z+b.maxZ)));
+     for(const t of owner.tiles)consider(owner,'tile',t,new THREE.Box3(
+      new THREE.Vector3(owner.x+t.x*TILE-TILE/2,owner.y-8,owner.z+t.z*TILE-TILE/2),
+      new THREE.Vector3(owner.x+t.x*TILE+TILE/2,owner.y+DECK_TOP,owner.z+t.z*TILE+TILE/2)));
     }
     return target;
   }
@@ -293,12 +354,13 @@ export class SpaceView{
       if(Math.abs(offset)>600)dust.array[k]-=Math.floor((offset+600)/1200)*1200;
     }
     dust.needsUpdate=true;
-    this.rebuildShip(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
+    this.rebuildShip(game);this.rebuildWreck(game);this.showDismantle(game);this.syncResources(game);this.robot.position.set(game.player.x,game.player.y,game.player.z);
     const forward=flightVector(look.yaw,look.pitch,1,0,0),position=this.robot.position;
     this.camera.position.copy(position);
     this.camera.lookAt(position.clone().add(new THREE.Vector3(forward.x,forward.y,forward.z)));
     this.hand.children[1].material=material(game.tool==='blaster'?'#ffc279':game.tool==='pulse'?'#b8a5ff':'#76d9c5',true);
-    this.hand.visible=!!game.tool;
+    this.hand.visible=!!game.tool&&game.tool!=='hook';
+    if(this.hookWeapon){this.hookWeapon.visible=game.tool==='hook'&&!placement;this.hookWeapon.position.z=-7+Math.max(0,(game.magnetReadyAt??0)-game.time)*.45;}
     const held=game.heldItem&&!['hook','pulse','blaster'].includes(game.heldItem)?game.heldItem:null;
     if(held!==this.heldKey){
       if(this.heldMesh){this.camera.remove(this.heldMesh);if(!this.heldMesh.userData.sharedAsset)this.heldMesh.geometry?.dispose();}
@@ -306,10 +368,13 @@ export class SpaceView{
       if(held){const mesh=BUILDABLES[held]?resourceMesh({itemKey:held},this.floatingTemplates):resourceMesh({type:SCRAP_VARIANTS.includes(held)?'metal':held,variant:SCRAP_VARIANTS.includes(held)?held:undefined},this.floatingTemplates);const bounds=new THREE.Box3().setFromObject(mesh),size=bounds.getSize(new THREE.Vector3());mesh.scale.multiplyScalar(4.5/Math.max(size.x,size.y,size.z));mesh.position.set(3,-2.7,-8);mesh.rotation.set(.25,-.5,.15);this.camera.add(mesh);this.heldMesh=mesh;}
     }
     this.hand.position.z=game.cooldown>0?Math.sin(game.cooldown*15)*.25:0;
-    this.beam.visible=!!game.shot;this.beam.material.color.set(game.shot?.magnetic?'#77eaff':'#ffb968');
+    this.beam.visible=!!game.shot&&!game.shot.magnetic;this.beam.material.color.set('#ffb968');
+    syncMagneticEffects(this,game);
     if(game.shot){const a=this.beam.geometry.attributes.position;const s=game.shot.start,e=game.shot.end;a.setXYZ(0,s.x,s.y-2,s.z);a.setXYZ(1,e.x,e.y,e.z);a.needsUpdate=true;this.beam.geometry.computeBoundingSphere();}    this.ship.position.set(game.ship.x,game.ship.y,game.ship.z);this.station.position.set(game.station.x,game.station.y,game.station.z);
-    for(const [object,mesh] of this.structureMeshes)if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});
+    for(const [object,mesh] of this.structureMeshes){if(object.type==='engine')mesh.traverse(node=>{if(node.userData.engineExhaust){node.scale.z=.5+(game.engineThrust??0)*.8;node.material.emissiveIntensity=.35+(game.engineThrust??0)*1.3;}});if(object.type==='battery')mesh.traverse(node=>{if(node.userData.batteryBar!==undefined){const power=Math.max(0,Math.min(1,(game.ship.power??0)/(game.ship.maxPower??100))),level=node.userData.batteryBar+1,lit=level<=Math.ceil(power*5),color=power<=.05?'#e34b4b':power<=.2?'#e7b649':'#73dfca';node.visible=true;node.material.color.set(lit?color:'#26383d');node.material.emissive.set(lit?color:'#26383d');node.material.emissiveIntensity=lit?.45+power:0;}});}
+    updateLampLights(this,game);
     this.head.position.set(game.enemy.x,game.enemy.y,game.enemy.z);
+    for(const [object,mesh] of this.structureMeshes)if(object.type==='battery')updateBatteryDisplay(mesh,object===game.station.battery?game.station.power:game.ship.power,object===game.station.battery?game.station.maxPower:game.ship.maxPower,game.time);
     const movement=this.previousEnemy?this.head.position.clone().sub(this.previousEnemy):new THREE.Vector3();
     if(!this.previousEnemy||movement.length()>200){this.enemyForward.copy(this.ship.position).sub(this.head.position).normalize();}
     else if(movement.lengthSq()>1e-7)this.enemyForward.copy(movement).normalize();
@@ -329,8 +394,10 @@ export class SpaceView{
     this.pulse.visible=game.pulse>0;this.pulse.position.copy(position);this.pulse.scale.setScalar(Math.max(1,210*(1-game.pulse/.4)));this.pulse.material.opacity=game.pulse*.7;
     if(placement){this.placementCandidate=this.placementTarget(game,placement.type,placement.rotation);this.showPlacement(game,this.placementCandidate);this.hand.visible=false;this.targetRing.visible=false;}
     else{this.placementCandidate=null;this.showPlacement(game,null);}
-    this.scene.updateMatrixWorld();this.renderer.render(this.scene,this.camera);
+    const skyState=this.sky.update(this.camera,game.time);
+    this.sunLight.position.copy(skyState.sun);this.sunLight.intensity=3.2*skyState.sunlight;
+    this.ambientLight.intensity=.38+1.92*skyState.sunlight;this.rimLight.intensity=.18+.22*skyState.sunlight;
+    this.scene.updateMatrixWorld();this.renderer.clear();this.sky.render(this.renderer);this.renderer.clearDepth();this.renderer.render(this.scene,this.camera);
   }
   waypoint(target,game){const p=new THREE.Vector3(target.x,target.y,target.z).project(this.camera);return {x:(p.x*.5+.5)*innerWidth,y:(-.5*p.y+.5)*innerHeight,inFront:p.z<1,distance:Math.round(distance(target,game.player))};}
 }
-

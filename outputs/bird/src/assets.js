@@ -4,7 +4,18 @@ import {TILE,DECK_TOP} from './raft.js';
 import {SCRAP_VARIANTS,ASTEROID_VARIANTS,ASTEROID_SIZES} from './variants.js';
 
 const loader=new GLTFLoader();
-export const ASSET_URLS={platform:new URL('../assets/platform.glb',import.meta.url).href,snake:new URL('../assets/Snake.glb',import.meta.url).href};
+export const ASSET_URLS={platform:new URL('../resource-models/hull.glb',import.meta.url).href,snake:new URL('../assets/Snake.glb',import.meta.url).href};
+
+export function prepareModularDeck(scene){
+  // Loose-item docking lugs tuck into adjoining sections once installed.
+  const lugs=[];scene.traverse(node=>{if(node.name.startsWith('Docking_lug'))lugs.push(node);});
+  for(const lug of lugs)lug.removeFromParent();
+  scene.updateMatrixWorld(true);
+  const bounds=new THREE.Box3().setFromObject(scene),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+  const sx=TILE/size.x,sy=16/size.y,sz=TILE/size.z;
+  scene.scale.set(sx,sy,sz);scene.position.set(-center.x*sx,DECK_TOP-bounds.max.y*sy,-center.z*sz);
+  const root=new THREE.Group();root.name='ModularDeckSection';root.add(scene);root.updateMatrixWorld(true);return root;
+}
 
 export function preparePlatform(scene){
   // This asset's triangle winding opposes its authored outward normals.
@@ -69,12 +80,18 @@ export function prepareFloatingModel(scene,size,name){
 }
 
 export async function loadGameAssets(){
-  const [platform,snake]=await Promise.all([loader.loadAsync(ASSET_URLS.platform),loader.loadAsync(ASSET_URLS.snake)]);
+  const magnetic=Object.fromEntries(await Promise.all(['magnetic-hook','attraction-orb','repulsion-orb','impulse-wave'].map(async name=>[name,(await loader.loadAsync(new URL('../magnetic-concepts/'+name+'.glb',import.meta.url).href)).scene])));
+  const equipment=Object.fromEntries(await Promise.all(['cargoPod','antenna','engine','solar'].map(async type=>[type,(await loader.loadAsync(new URL('../equipment/'+type+'.glb',import.meta.url).href)).scene])));
+  const [platform,snake,battery]=await Promise.all([loader.loadAsync(ASSET_URLS.platform),loader.loadAsync(ASSET_URLS.snake),loader.loadAsync(new URL('../battery-v2/SpaceBird-Battery.glb',import.meta.url).href)]);
   const floating=await Promise.all([...SCRAP_VARIANTS,...ASTEROID_VARIANTS].map(async(name,i)=>{
     const asset=await loader.loadAsync(new URL('../assets/'+name+'.glb',import.meta.url).href);
     return [name,prepareFloatingModel(asset.scene,i<6?28:ASTEROID_SIZES[i-6],name)];
   }));
-  return {platform:preparePlatform(platform.scene),snake:prepareSnake(snake.scene),floating:Object.fromEntries(floating)};
+  const resources=await Promise.all(['polymer','circuit','cell','hull'].map(async type=>{
+    const asset=await loader.loadAsync(new URL('../resource-models/'+type+'.glb',import.meta.url).href);
+    return [type,prepareFloatingModel(asset.scene,28,type)];
+  }));
+  return {platform:prepareModularDeck(platform.scene),snake:prepareSnake(snake.scene),battery:battery.scene,equipment,magnetic,floating:Object.fromEntries([...floating,...resources])};
 }
 
 // Follow the live AI trail; extend its last direction when there is not yet a full tail.
